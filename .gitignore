@@ -1,0 +1,12 @@
+# Arduino CLI build artifacts
+build/
+*.bin
+*.elf
+*.map
+*.hex
+*.a
+*.o
+
+# OS generated files
+.DS_Store
+Thumbs.db
