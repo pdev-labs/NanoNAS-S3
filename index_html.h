@@ -562,7 +562,11 @@ const char index_html[] PROGMEM = R"rawliteral(
                 <h3 style="margin-bottom:16px;">Users</h3>
                 <ul class="file-list" id="usersList" style="margin-bottom:16px;"></ul>
                 <input type="text" id="newUsername" class="input-field" placeholder="New Username" style="margin-bottom:8px;">
-                <input type="password" id="newPassword" class="input-field" placeholder="New Password" style="margin-bottom:16px;">
+                <input type="password" id="newPassword" class="input-field" placeholder="New Password" style="margin-bottom:8px;">
+                <select id="newRole" class="input-field" style="margin-bottom:16px; width:100%;">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                </select>
                 <button class="btn btn-filled" onclick="addUser()">ADD USER</button>
             </div>
         </div>
@@ -854,7 +858,7 @@ let currentDir = "/";
         }
         async function loadUsers() {
             try {
-                let res = await fetch('/users');
+                let res = await fetch('/api/users');
                 if(!res.ok) return;
                 let users = await res.json();
                 let html = '';
@@ -869,11 +873,12 @@ let currentDir = "/";
         async function addUser() {
             let u = document.getElementById('newUsername').value;
             let p = document.getElementById('newPassword').value;
+            let r = document.getElementById('newRole').value;
             if(!u || !p) return;
             try {
-                let res = await fetch('/users', {
+                let res = await fetch('/api/users', {
                     method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body: `username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`
+                    body: `username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}&role=${encodeURIComponent(r)}`
                 });
                 if(res.ok) { document.getElementById('newUsername').value=''; document.getElementById('newPassword').value=''; loadUsers(); }
                 else alert("Failed to add user");
@@ -882,7 +887,7 @@ let currentDir = "/";
         async function deleteUser(u) {
             if(!confirm(`Delete user ${u}?`)) return;
             try {
-                let res = await fetch('/users?username=' + encodeURIComponent(u), {method: 'DELETE'});
+                let res = await fetch('/api/users?username=' + encodeURIComponent(u), {method: 'DELETE'});
                 if(res.ok) loadUsers();
             } catch(e){}
         }
