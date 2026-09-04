@@ -1,18 +1,105 @@
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
+#include <LittleFS.h>
 #include <ArduinoJson.h>
+#include <DNSServer.h>
+#include "index_html.h"
 #include "EspUsbHost.h"
+#include <ESPmDNS.h>
+#include <Update.h>
 
-// Define the Wi-Fi credentials
-const char* ssid = "vivo T4x 5G";
-const char* password = "gxtcgc599h5rb8d";
-
-AsyncWebServer server(80);
 
 EspUsbHost usb;
 EspUsbHostMscFS usbMassStorage;
-
 static uint32_t lastMountAttemptMs = 0;
+
+fs::FS& getStorage() {
+  if (usbMassStorage.mounted()) {
+    return usbMassStorage;
+  }
+  return LittleFS;
+}
+
+
+
+// Configuration
+const char* ap_ssid = "NanoNAS";
+const char* ap_pass = "nanopass";
+const char* sta_ssid = "vivo T4x 5G";
+const char* sta_pass = "gxtcgc599h5rb8d";
+
+
+AsyncWebServer server(80);
+DNSServer dnsServer;
+
+// User Management
+struct AppUser {
+  String username;
+  String password;
+  String role;
+};
+std::vector<AppUser> users;
+
+void loadUsers() {
+  users.clear();
+  if (LittleFS.exists("/users.json")) {
+    File f = LittleFS.open("/users.json", "r");
+    DynamicJsonDocument doc(1024);
+    deserializeJson(doc, f);
+    f.close();
+    JsonArray arr = doc.as<JsonArray>();
+    for (JsonObject u : arr) {
+      AppUser user;
+      user.username = u["username"].as<String>();
+      user.password = u["password"].as<String>();
+      user.role = u["role"].as<String>();
+      users.push_back(user);
+    }
+  }
+  // Ensure default admin exists
+  if (users.empty()) {
+    users.push_back({"admin", "admin", "admin"});
+  }
+}
+
+void saveUsers() {
+  DynamicJsonDocument doc(1024);
+  JsonArray arr = doc.to<JsonArray>();
+  for (auto& u : users) {
+    JsonObject obj = arr.createNestedObject();
+    obj["username"] = u.username;
+    obj["password"] = u.password;
+    obj["role"] = u.role;
+  }
+  File f = LittleFS.open("/users.json", "w");
+  serializeJson(doc, f);
+  f.close();
+}
+
+AppUser* getAuthenticatedUser(AsyncWebServerRequest *request) {
+  for (auto& u : users) {
+    if (request->authenticate(u.username.c_str(), u.password.c_str())) {
+      return &u;
+    }
+  }
+  return nullptr;
+}
+
+bool checkAuth(AsyncWebServerRequest *request, bool requireAdmin = false) {
+  AppUser* u = getAuthenticatedUser(request);
+  if (!u) {
+    request->requestAuthentication();
+    return false;
+  }
+  if (requireAdmin && u->role != "admin") {
+    request->send(403, "text/plain", "Forbidden: Admin access required");
+    return false;
+  }
+  return true;
+}
+
+
+
 
 // Helper to get mime type
 String getContentType(String filename) {
@@ -22,316 +109,257 @@ String getContentType(String filename) {
   else if (filename.endsWith(".png")) return "image/png";
   else if (filename.endsWith(".gif")) return "image/gif";
   else if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) return "image/jpeg";
+  else if (filename.endsWith(".ico")) return "image/x-icon";
+  else if (filename.endsWith(".xml")) return "text/xml";
+  else if (filename.endsWith(".pdf")) return "application/pdf";
+  else if (filename.endsWith(".zip")) return "application/zip";
   else if (filename.endsWith(".mp4")) return "video/mp4";
   else if (filename.endsWith(".mp3")) return "audio/mpeg";
   else if (filename.endsWith(".wav")) return "audio/wav";
-  else if (filename.endsWith(".webm")) return "video/webm";
-  else if (filename.endsWith(".ogg")) return "audio/ogg";
-  else if (filename.endsWith(".mkv")) return "video/x-matroska";
   return "application/octet-stream";
 }
 
-// HTML page embedded directly
-const char* index_html = R"rawliteral(
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 File Share (Pro)</title>
-    <style>
-        :root {
-            --bg-color: #0f172a;
-            --surface-color: #1e293b;
-            --primary-color: #3b82f6;
-            --text-color: #f8fafc;
-            --text-muted: #94a3b8;
-            --danger-color: #ef4444;
-            --success-color: #10b981;
-            --border-radius: 12px;
-        }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 2rem; display: flex; flex-direction: column; align-items: center; }
-        .container { max-width: 800px; width: 100%; background-color: var(--surface-color); border-radius: var(--border-radius); padding: 2rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
-        h1 { text-align: center; margin-top: 0; color: var(--primary-color); }
-        .upload-area { border: 2px dashed var(--primary-color); border-radius: var(--border-radius); padding: 3rem; text-align: center; cursor: pointer; transition: background-color 0.3s; margin-bottom: 2rem; }
-        .upload-area:hover, .upload-area.dragover { background-color: rgba(59, 130, 246, 0.1); }
-        .file-list { list-style: none; padding: 0; margin: 0; }
-        .file-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background-color: rgba(255, 255, 255, 0.05); margin-bottom: 0.5rem; border-radius: 8px; }
-        .file-info { display: flex; flex-direction: column; }
-        .file-name { font-weight: bold; }
-        .file-size { font-size: 0.85rem; color: var(--text-muted); }
-        .actions button, .actions a { padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; text-decoration: none; color: white; font-weight: 500; margin-left: 0.5rem; transition: opacity 0.2s; display: inline-block; }
-        .actions button:hover, .actions a:hover { opacity: 0.8; }
-        .btn-download { background-color: var(--primary-color); }
-        .btn-stream { background-color: var(--success-color); }
-        .btn-delete { background-color: var(--danger-color); }
-        #progress-bar-container { display: none; width: 100%; background-color: rgba(255,255,255,0.1); border-radius: 8px; margin-top: 1rem; overflow: hidden; position: relative;}
-        #progress-bar { height: 24px; width: 0%; background-color: var(--primary-color); transition: width 0.1s; }
-        #progress-text { position: absolute; width: 100%; text-align: center; top: 2px; font-size: 0.85rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
-    </style>
-</head>
-<body>
-<div class="container">
-    <h1>ESP32 File Share (Pro USB)</h1>
-    <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
-        <p>Drag & Drop massive files here (Chunked Uploads Enabled)</p>
-        <input type="file" id="fileInput" style="display: none" onchange="handleFiles(this.files)">
-    </div>
-    <div id="progress-bar-container">
-        <div id="progress-bar"></div>
-        <div id="progress-text">0%</div>
-    </div>
-    <h2>Files (USB Drive)</h2>
-    <ul class="file-list" id="fileList"></ul>
-</div>
-<script>
-    const uploadArea = document.getElementById('uploadArea');
-    const fileListEl = document.getElementById('fileList');
-    const progressBarContainer = document.getElementById('progress-bar-container');
-    const progressBar = document.getElementById('progress-bar');
-    const progressText = document.getElementById('progress-text');
-    
-    loadFiles();
-    
-    uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
-    uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('dragover'); });
-    uploadArea.addEventListener('drop', (e) => { e.preventDefault(); uploadArea.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
-    
-    function formatBytes(bytes, decimals = 2) { if (bytes === 0) return '0 Bytes'; const k = 1024; const dm = decimals < 0 ? 0 : decimals; const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']; const i = Math.floor(Math.log(bytes) / Math.log(k)); return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]; }
-    
-    function isMedia(filename) {
-        const ext = filename.split('.').pop().toLowerCase();
-        return ['mp4', 'webm', 'ogg', 'mp3', 'wav', 'jpg', 'jpeg', 'png', 'gif'].includes(ext);
-    }
-
-    async function loadFiles() {
-        try {
-            const response = await fetch('/list');
-            const files = await response.json();
-            fileListEl.innerHTML = '';
-            if(files.length === 0) { fileListEl.innerHTML = '<li class="file-item"><div class="file-info"><span class="file-name">No files found.</span></div></li>'; }
-            files.forEach(file => {
-                const li = document.createElement('li');
-                li.className = 'file-item';
-                
-                let streamBtn = '';
-                if(isMedia(file.name)) {
-                    streamBtn = `<a href="/stream?file=${encodeURIComponent(file.name)}" class="btn-stream" target="_blank">Stream/View</a>`;
-                }
-
-                li.innerHTML = `
-                    <div class="file-info">
-                        <span class="file-name">${file.name}</span>
-                        <span class="file-size">${formatBytes(file.size)}</span>
-                    </div>
-                    <div class="actions">
-                        ${streamBtn}
-                        <a href="/download?file=${encodeURIComponent(file.name)}" class="btn-download" download>Download</a>
-                        <button class="btn-delete" onclick="deleteFile('${file.name}')">Delete</button>
-                    </div>
-                `;
-                fileListEl.appendChild(li);
-            });
-        } catch (error) { console.error('Error loading files:', error); }
-    }
-
-    async function handleFiles(files) {
-        if (files.length === 0) return;
-        const file = files[0];
-        
-        progressBarContainer.style.display = 'block';
-        progressBar.style.width = '0%';
-        progressText.innerText = '0%';
-        
-        // 4MB chunks for stable, fast uploading
-        const chunkSize = 1024 * 1024 * 4; 
-        const totalChunks = Math.ceil(file.size / chunkSize);
-        let uploadedBytes = 0;
-
-        for (let i = 0; i < totalChunks; i++) {
-            const start = i * chunkSize;
-            const end = Math.min(start + chunkSize, file.size);
-            const chunk = file.slice(start, end);
-            
-            const append = (i === 0) ? '0' : '1';
-            
-            let success = false;
-            let retries = 3;
-            
-            while (!success && retries > 0) {
-                try {
-                    const response = await fetch(`/upload_chunk?name=${encodeURIComponent(file.name)}&append=${append}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/octet-stream'
-                        },
-                        body: chunk
-                    });
-                    
-                    if (response.ok) {
-                        success = true;
-                        uploadedBytes += (end - start);
-                        const percent = ((uploadedBytes / file.size) * 100).toFixed(1);
-                        progressBar.style.width = percent + '%';
-                        progressText.innerText = percent + '% (Chunk ' + (i+1) + '/' + totalChunks + ')';
-                    } else {
-                        console.warn("Chunk failed, retrying...", retries);
-                        retries--;
-                        await new Promise(r => setTimeout(r, 1000));
-                    }
-                } catch (e) {
-                    console.warn("Network error, retrying...", retries);
-                    retries--;
-                    await new Promise(r => setTimeout(r, 1000));
-                }
-            }
-            
-            if (!success) {
-                alert('Upload failed definitively at chunk ' + (i+1));
-                progressBarContainer.style.display = 'none';
-                return;
-            }
-        }
-        
-        progressText.innerText = 'Upload Complete!';
-        setTimeout(() => {
-            progressBarContainer.style.display = 'none';
-            loadFiles();
-        }, 1500);
-    }
-
-    async function deleteFile(filename) {
-        if (!confirm('Are you sure you want to delete ' + filename + '?')) return;
-        try { const response = await fetch('/delete?file=' + encodeURIComponent(filename), { method: 'DELETE' }); if (response.ok) { loadFiles(); } else { alert('Delete failed.'); } } catch (error) { console.error('Error deleting file:', error); }
-    }
-</script>
-</body>
-</html>
-)rawliteral";
-
+String sanitizePath(String path) {
+  if (!path.startsWith("/")) path = "/" + path;
+  return path;
+}
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  // Initialize USB Host
-  usb.onDeviceConnected([](const EspUsbHostDeviceInfo &device) {
-      Serial.print("USB connected: ");
-      espUsbHostPrint(device); 
-  });
-  usb.onDeviceDisconnected([](const EspUsbHostDeviceInfo &device) {
-      Serial.print("USB disconnected: ");
-      espUsbHostPrint(device); 
-  });
-  
-  if (!usb.begin()) {
-      Serial.printf("usb.begin() failed: %s\n", usb.lastErrorName());
+  // Initialize LittleFS
+  if (!LittleFS.begin(true)) {
+    Serial.println("An Error has occurred while mounting LittleFS");
+  } else {
+    Serial.println("LittleFS Mounted");
+    loadUsers();
   }
 
-  // Connect to WiFi
-  WiFi.begin(ssid, password);
+  // Try connecting to Hotspot first (Station Mode)
+  Serial.println("Attempting to connect to Hotspot...");
+  WiFi.mode(WIFI_STA);
+  WiFi.setHostname("nanonas");
+  WiFi.begin(sta_ssid, sta_pass);
   
   // OPTIMIZATION: Disable WiFi power saving mode and set max TX power
-  WiFi.setSleep(false); 
+  WiFi.setSleep(false);
   WiFi.setTxPower(WIFI_POWER_19_5dBm);
-
-  Serial.print("Connecting to WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
+  
+  int retries = 0;
+  while (WiFi.status() != WL_CONNECTED && retries < 20) {
+    delay(500);
     Serial.print(".");
+    retries++;
   }
-  Serial.println("\nConnected to WiFi");
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
+  Serial.println();
 
-  // Root Page
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("Connected to Hotspot successfully!");
+    Serial.print("NAS IP Address: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    // Fallback to AP_STA Mode so it hosts the network BUT keeps trying to connect to the hotspot
+    Serial.println("Hotspot not found. Falling back to AP Mode...");
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.softAP(ap_ssid, ap_pass);
+    Serial.print("AP IP Address: ");
+    Serial.println(WiFi.softAPIP());
+    
+    // Captive Portal DNS only needed in AP Mode
+    dnsServer.start(53, "*", WiFi.softAPIP());
+  }
+  
+  // mDNS
+  if (!MDNS.begin("nanonas")) {
+    Serial.println("Error setting up MDNS responder!");
+  } else {
+    Serial.println("mDNS responder started (nanonas.local)");
+    MDNS.addService("http", "tcp", 80);
+  }
+
+  // HTTP Routes
+  // -----------------------------------------------------
+  // Root Page (Captive Portal fallback included)
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    if(!checkAuth(request, false)) return;
     request->send(200, "text/html", index_html);
   });
 
-  // List Files
-  server.on("/list", HTTP_GET, [](AsyncWebServerRequest *request){
-    if (!usbMassStorage.mounted()) {
-      request->send(500, "application/json", "[]");
-      return;
+  // Captive Portal Redirect for Android/iOS
+  server.onNotFound([](AsyncWebServerRequest *request){
+    if(!checkAuth(request, false)) return;
+    request->redirect("/");
+  });
+  
+  // System Telemetry Endpoint
+  server.on("/sysinfo", HTTP_GET, [](AsyncWebServerRequest *request){
+    if(!checkAuth(request, false)) return;
+    
+    String json;
+    DynamicJsonDocument doc(256);
+    doc["freeHeap"] = ESP.getFreeHeap();
+    doc["uptime"] = millis() / 1000;
+    doc["rssi"] = WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0;
+    doc["usedBytes"] = usbMassStorage.mounted() ? 0 : LittleFS.usedBytes();
+    doc["totalBytes"] = usbMassStorage.mounted() ? 0 : LittleFS.totalBytes();
+    serializeJson(doc, json);
+    request->send(200, "application/json", json);
+  });
+
+
+  // API: Get Users
+  server.on("/api/users", HTTP_GET, [](AsyncWebServerRequest *request){
+    if(!checkAuth(request, true)) return;
+    String json;
+    DynamicJsonDocument doc(1024);
+    JsonArray arr = doc.to<JsonArray>();
+    for (auto& u : users) {
+      JsonObject obj = arr.createNestedObject();
+      obj["username"] = u.username;
+      obj["role"] = u.role;
     }
+    serializeJson(doc, json);
+    request->send(200, "application/json", json);
+  });
+
+  // API: Add User
+  server.on("/api/users", HTTP_POST, [](AsyncWebServerRequest *request){
+    if(!checkAuth(request, true)) return;
+    if (request->hasParam("username", true) && request->hasParam("password", true) && request->hasParam("role", true)) {
+      AppUser u;
+      u.username = request->getParam("username", true)->value();
+      u.password = request->getParam("password", true)->value();
+      u.role = request->getParam("role", true)->value();
+      users.push_back(u);
+      saveUsers();
+      request->send(200, "text/plain", "OK");
+    } else {
+      request->send(400, "text/plain", "Missing params");
+    }
+  });
+
+  // API: Delete User
+  server.on("/api/users", HTTP_DELETE, [](AsyncWebServerRequest *request){
+    if(!checkAuth(request, true)) return;
+    if (request->hasParam("username")) {
+      String uname = request->getParam("username")->value();
+      // Don't delete last admin
+      int adminCount = 0;
+      for (auto& u : users) if (u.role == "admin") adminCount++;
+      
+      for (auto it = users.begin(); it != users.end(); ++it) {
+        if (it->username == uname) {
+          if (it->role == "admin" && adminCount <= 1) {
+             request->send(400, "text/plain", "Cannot delete last admin");
+             return;
+          }
+          users.erase(it);
+          saveUsers();
+          request->send(200, "text/plain", "OK");
+          return;
+        }
+      }
+      request->send(404, "text/plain", "User not found");
+    } else {
+      request->send(400, "text/plain", "Missing username");
+    }
+  });
+
+  // List Files and Folders
+  server.on("/list", HTTP_GET, [](AsyncWebServerRequest *request){
+    if(!checkAuth(request, false)) return;
+    
+    String dirPath = "/";
+    if (request->hasParam("dir")) dirPath = sanitizePath(request->getParam("dir")->value());
+    
+    File root = getStorage().open(dirPath);
+    if (!root || !root.isDirectory()) return request->send(500, "application/json", "[]");
 
     String json = "[";
-    File root = usbMassStorage.open("/");
-    if (!root) {
-      request->send(500, "application/json", "[]");
-      return;
-    }
-
     bool first = true;
     while (true) {
       File entry = root.openNextFile();
       if (!entry) break;
 
-      if (!entry.isDirectory()) {
-        if (!first) json += ",";
-        json += "{\"name\":\"";
-        json += entry.name();
-        json += "\",\"size\":";
-        json += entry.size();
-        json += "}";
-        first = false;
-      }
+      if (!first) json += ",";
+      json += "{\"name\":\"";
+      String name = String(entry.name());
+      // LittleFS openNextFile returns full path sometimes, we just want the basename
+      int lastSlash = name.lastIndexOf('/');
+      if (lastSlash >= 0) name = name.substring(lastSlash + 1);
+      
+      json += name;
+      json += "\",\"isDir\":";
+      json += entry.isDirectory() ? "true" : "false";
+      json += ",\"size\":";
+      json += entry.size();
+      json += "}";
+      
+      first = false;
       entry.close();
     }
     root.close();
-    
     json += "]";
     request->send(200, "application/json", json);
   });
 
+  // Make Directory
+  server.on("/mkdir", HTTP_POST, [](AsyncWebServerRequest *request){
+    if(!checkAuth(request, true)) return;
+    if (request->hasParam("dir")) {
+      String path = sanitizePath(request->getParam("dir")->value());
+      if (getStorage().mkdir(path)) request->send(200, "text/plain", "OK");
+      else request->send(500, "text/plain", "Failed to create folder");
+    } else {
+      request->send(400, "text/plain", "Missing dir param");
+    }
+  });
+
   // Download
   server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
-    if (!usbMassStorage.mounted()) return request->send(500, "text/plain", "USB Not Mounted");
+    if(!checkAuth(request, false)) return;
     if (request->hasParam("file")) {
-      String filename = request->getParam("file")->value();
-      String path = "/" + filename;
-      AsyncWebServerResponse *response = request->beginResponse(usbMassStorage, path, "application/octet-stream", true);
+      String path = sanitizePath(request->getParam("file")->value());
+      if (!getStorage().exists(path)) return request->send(404, "text/plain", "Not Found");
+
+      String filename = path.substring(path.lastIndexOf('/') + 1);
+      AsyncWebServerResponse *response = request->beginResponse(LittleFS, path, "application/octet-stream", true);
       response->addHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
       request->send(response);
-    } else {
-      request->send(400, "text/plain", "Missing file parameter");
     }
   });
 
   // Stream
   server.on("/stream", HTTP_GET, [](AsyncWebServerRequest *request){
-    if (!usbMassStorage.mounted()) return request->send(500, "text/plain", "USB Not Mounted");
+    if(!checkAuth(request, false)) return;
     if (request->hasParam("file")) {
-      String filename = request->getParam("file")->value();
-      String path = "/" + filename;
-      String contentType = getContentType(filename);
-      request->send(usbMassStorage, path, contentType);
-    } else {
-      request->send(400, "text/plain", "Missing file parameter");
+      String path = sanitizePath(request->getParam("file")->value());
+      if (!getStorage().exists(path)) return request->send(404, "text/plain", "Not Found");
+      request->send(getStorage(), path, getContentType(path));
     }
   });
 
-  // Delete
+  // Delete File/Folder
   server.on("/delete", HTTP_DELETE, [](AsyncWebServerRequest *request){
-    if (!usbMassStorage.mounted()) return request->send(500, "text/plain", "USB Not Mounted");
+    if(!checkAuth(request, true)) return;
     if (request->hasParam("file")) {
-      String path = "/" + request->getParam("file")->value();
-      if (usbMassStorage.remove(path)) {
-        request->send(200, "text/plain", "File Deleted");
-      } else {
-        request->send(500, "text/plain", "Delete Failed");
-      }
-    } else {
-      request->send(400, "text/plain", "Missing file parameter");
+      String path = sanitizePath(request->getParam("file")->value());
+      File f = getStorage().open(path);
+      bool isDir = f && f.isDirectory();
+      if(f) f.close();
+      
+      bool success = isDir ? getStorage().rmdir(path) : getStorage().remove(path);
+      if (success) request->send(200, "text/plain", "Deleted");
+      else request->send(500, "text/plain", "Failed");
     }
   });
   
-  // Chunked Upload Endpoint (Requires raw struct definition for storing File)
+  // Chunked Upload Endpoint
   struct FileContext { File f; };
-
   server.on("/upload_chunk", HTTP_POST, 
     [](AsyncWebServerRequest *request){
+      if(!checkAuth(request, true)) return;
       FileContext* ctx = (FileContext*)request->_tempObject;
       if (ctx) {
         if (ctx->f) ctx->f.close();
@@ -342,40 +370,81 @@ void setup() {
     }, 
     NULL, 
     [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
-      if (!usbMassStorage.mounted()) return;
+      if(!getAuthenticatedUser(request)) return;
       if (!request->hasParam("name")) return;
       
       FileContext* ctx = (FileContext*)request->_tempObject;
-      
       if (!ctx && index == 0) {
-        String filename = request->getParam("name")->value();
-        String path = "/" + filename;
+        String path = sanitizePath(request->getParam("name")->value());
         bool append = request->hasParam("append") && request->getParam("append")->value() == "1";
-        
         ctx = new FileContext();
-        ctx->f = usbMassStorage.open(path, append ? FILE_APPEND : FILE_WRITE);
+        ctx->f = getStorage().open(path, append ? FILE_APPEND : FILE_WRITE);
         request->_tempObject = ctx;
       }
-      
-      if(ctx && ctx->f) {
-        ctx->f.write(data, len);
-      }
+      if(ctx && ctx->f) ctx->f.write(data, len);
     }
   );
 
+  // OTA Firmware Update
+  server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if(!checkAuth(request, true)) return;
+    bool shouldReboot = !Update.hasError();
+    AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", shouldReboot ? "OK" : "FAIL");
+    response->addHeader("Connection", "close");
+    request->send(response);
+    if(shouldReboot) {
+      delay(500);
+      ESP.restart();
+    }
+  }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+    AppUser* u = getAuthenticatedUser(request);
+    if (!u || u->role != "admin") return;
+    if(!index){
+      Serial.printf("Update Start: %s\n", filename.c_str());
+      if(!Update.begin(UPDATE_SIZE_UNKNOWN)){
+        Update.printError(Serial);
+      }
+    }
+    if(!Update.hasError()){
+      if(Update.write(data, len) != len){
+        Update.printError(Serial);
+      }
+    }
+    if(final){
+      if(Update.end(true)){
+        Serial.printf("Update Success: %uB\n", index+len);
+      } else {
+        Update.printError(Serial);
+      }
+    }
+  });
+
   server.begin();
-  Serial.println("Async HTTP server started");
+  Serial.println("Setup complete");
 }
 
 void loop() {
-  if (!usbMassStorage.mounted()) {
-      const uint32_t now = millis();
-      if (now - lastMountAttemptMs >= 1000) {
-          lastMountAttemptMs = now;
-          if (usbMassStorage.begin(usb, "/usb")) {
-              Serial.println("USB Mounted Successfully");
-          }
-      }
+  dnsServer.processNextRequest();
+  
+  static unsigned long lastCheck = 0;
+  if (millis() - lastCheck > 5000) {
+    lastCheck = millis();
+    
+    // If in STA mode and lost connection, switch to AP_STA to host WiFi while reconnecting
+    if (WiFi.getMode() == WIFI_STA && WiFi.status() != WL_CONNECTED) {
+      Serial.println("Lost Hotspot connection! Switching to AP Mode...");
+      WiFi.mode(WIFI_AP_STA);
+      WiFi.softAP(ap_ssid, ap_pass);
+      dnsServer.start(53, "*", WiFi.softAPIP());
+    }
+    
+    // If in AP_STA mode and hotspot comes back, switch back to STA to clean up
+    if (WiFi.getMode() == WIFI_AP_STA && WiFi.status() == WL_CONNECTED) {
+      Serial.println("Reconnected to Hotspot! Disabling AP Mode...");
+      dnsServer.stop();
+      WiFi.mode(WIFI_STA);
+    }
   }
+
   delay(10);
 }
