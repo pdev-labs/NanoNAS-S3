@@ -101,6 +101,41 @@ bool checkAuth(AsyncWebServerRequest *request, bool requireAdmin = false) {
 
 
 
+// Helper to copy files and directories recursively
+bool copyRecursive(String srcPath, String destPath) {
+  fs::File src = getStorage().open(srcPath, "r");
+  if (!src) return false;
+
+  if (!src.isDirectory()) {
+    fs::File dest = getStorage().open(destPath, "w");
+    if (!dest) { src.close(); return false; }
+    
+    uint8_t buf[4096];
+    size_t len = 0;
+    while ((len = src.read(buf, sizeof(buf))) > 0) {
+      dest.write(buf, len);
+      delay(1); // prevent WDT
+    }
+    dest.close();
+    src.close();
+    return true;
+  } else {
+    getStorage().mkdir(destPath);
+    fs::File dir = src;
+    fs::File file = dir.openNextFile();
+    while (file) {
+      String newSrc = srcPath + "/" + file.name();
+      String newDest = destPath + "/" + file.name();
+      if (!copyRecursive(newSrc, newDest)) {
+        return false;
+      }
+      file = dir.openNextFile();
+      delay(1);
+    }
+    return true;
+  }
+}
+
 // Helper to get mime type
 String getContentType(String filename) {
   if (filename.endsWith(".html")) return "text/html";
@@ -451,7 +486,25 @@ void setup() {
     }
   });
 
+
   // Delete File/Folder
+
+  // API: Copy File/Folder
+  server.on("/api/copy", HTTP_POST, [](AsyncWebServerRequest *request){
+    if(!checkAuth(request, true)) return;
+    if(request->hasParam("from", true) && request->hasParam("to", true)) {
+      String fromPath = sanitizePath(request->getParam("from", true)->value());
+      String toPath = sanitizePath(request->getParam("to", true)->value());
+      if(copyRecursive(fromPath, toPath)) {
+        request->send(200, "text/plain", "OK");
+      } else {
+        request->send(500, "text/plain", "Copy failed");
+      }
+    } else {
+      request->send(400, "text/plain", "Missing from or to parameter");
+    }
+  });
+
   // API: Move / Rename
   server.on("/api/move", HTTP_POST, [](AsyncWebServerRequest *request){
     if(!checkAuth(request, true)) return;

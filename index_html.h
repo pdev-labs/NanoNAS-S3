@@ -706,6 +706,8 @@ let currentDir = "/";
                                 <span class="file-size">-</span>
                             </div>
                             <div class="actions">
+                                <button class="btn btn-text" onclick="cutFile('${fullPath}')" title="Cut"><span class="material-symbols-outlined">content_cut</span></button>
+                                <button class="btn btn-text" onclick="copyFile('${fullPath}')" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
                                 <a href="/download_dir?dir=${encodeURIComponent(fullPath)}" class="btn btn-text" title="Download ZIP"><span class="material-symbols-outlined">archive</span></a>
                                 <button class="btn btn-error" onclick="deleteFile('${fullPath}', true)" title="Delete Folder"><span class="material-symbols-outlined">delete</span></button>
                             </div>
@@ -722,6 +724,8 @@ let currentDir = "/";
                             </div>
                             <div class="actions">
                                 ${playBtn}
+                                <button class="btn btn-text" onclick="cutFile('${fullPath}')" title="Cut"><span class="material-symbols-outlined">content_cut</span></button>
+                                <button class="btn btn-text" onclick="copyFile('${fullPath}')" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
                                 <a href="/download?file=${encodeURIComponent(fullPath)}" class="btn btn-text" download title="Download"><span class="material-symbols-outlined">download</span></a>
                                 <button class="btn btn-error" onclick="deleteFile('${fullPath}', false)" title="Delete"><span class="material-symbols-outlined">delete</span></button>
                             </div>
@@ -810,6 +814,72 @@ let currentDir = "/";
         }
 
         
+        
+        // --- Clipboard Logic ---
+        function updatePasteButton() {
+            let cb = localStorage.getItem('clipboard');
+            let btn = document.getElementById('paste-btn');
+            if (cb) {
+                btn.style.display = 'flex';
+                let data = JSON.parse(cb);
+                btn.title = `Paste ${data.path}`;
+            } else {
+                btn.style.display = 'none';
+            }
+        }
+        function copyFile(path) {
+            localStorage.setItem('clipboard', JSON.stringify({action: 'copy', path: path}));
+            updatePasteButton();
+        }
+        function cutFile(path) {
+            localStorage.setItem('clipboard', JSON.stringify({action: 'cut', path: path}));
+            updatePasteButton();
+        }
+        async function pasteFile() {
+            let cb = localStorage.getItem('clipboard');
+            if (!cb) return;
+            let data = JSON.parse(cb);
+            
+            let sourcePath = data.path;
+            let sourceName = sourcePath.substring(sourcePath.lastIndexOf('/') + 1);
+            let destPath = currentDir + "/" + sourceName;
+            if (currentDir === "/") destPath = "/" + sourceName;
+            if (sourcePath === destPath) return; // Same location
+            
+            let endpoint = data.action === 'cut' ? '/api/move' : '/api/copy';
+            
+            try {
+                // Show loading spinner for copy since it takes a while
+                if (data.action === 'copy') {
+                    document.getElementById('file-list').innerHTML = `<li class="file-item" style="justify-content:center;">Copying... this may take a while.</li>`;
+                }
+                
+                let res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: `from=${encodeURIComponent(sourcePath)}&to=${encodeURIComponent(destPath)}`
+                });
+                if(res.ok) {
+                    if (data.action === 'cut') {
+                        localStorage.removeItem('clipboard'); // clear clipboard on move
+                    }
+                    loadFiles();
+                    updatePasteButton();
+                } else {
+                    alert(`Failed to ${data.action} file.`);
+                    loadFiles();
+                }
+            } catch(e) {
+                alert(`Error during ${data.action}.`);
+                loadFiles();
+            }
+        }
+        
+        // Ensure paste button state is updated on load
+        window.addEventListener('DOMContentLoaded', () => {
+            updatePasteButton();
+        });
+
         // --- Drag and Drop File Moving ---
         function dragStart(e, path) {
             e.dataTransfer.setData('text/plain', path);
