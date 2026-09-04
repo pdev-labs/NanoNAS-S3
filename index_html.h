@@ -1084,6 +1084,68 @@ let currentDir = "/";
             } catch(e){}
         }
 
+        function toggleSelection(path, isChecked) {
+            if (isChecked) {
+                selectedItems.add(path);
+            } else {
+                selectedItems.delete(path);
+            }
+            updateActionBar();
+        }
+
+        function clearSelection() {
+            selectedItems.clear();
+            document.querySelectorAll('.checkbox-container input').forEach(el => el.checked = false);
+            updateActionBar();
+        }
+
+        function updateActionBar() {
+            let bar = document.getElementById('actionBar');
+            let count = document.getElementById('selectedCount');
+            if (selectedItems.size > 0) {
+                bar.style.display = 'flex';
+                count.innerText = selectedItems.size + " selected";
+            } else {
+                bar.style.display = 'none';
+            }
+        }
+
+        function bulkCopy() {
+            if(selectedItems.size === 0) return;
+            sessionStorage.setItem('clipboardAction', 'copy');
+            sessionStorage.setItem('clipboardData', JSON.stringify(Array.from(selectedItems)));
+            alert(`Copied ${selectedItems.size} items. Go to destination and Paste.`);
+            clearSelection();
+            loadFiles();
+        }
+
+        function bulkCut() {
+            if(selectedItems.size === 0) return;
+            sessionStorage.setItem('clipboardAction', 'move');
+            sessionStorage.setItem('clipboardData', JSON.stringify(Array.from(selectedItems)));
+            alert(`Cut ${selectedItems.size} items. Go to destination and Paste.`);
+            clearSelection();
+            loadFiles();
+        }
+
+        async function bulkDelete() {
+            if(selectedItems.size === 0) return;
+            if(!confirm(`Delete ${selectedItems.size} selected items?`)) return;
+            let arr = Array.from(selectedItems);
+            let successCount = 0;
+            
+            for (let i = 0; i < arr.length; i++) {
+                try {
+                    let res = await fetch('/delete?file=' + encodeURIComponent(arr[i]), { method: 'DELETE' });
+                    if (res.ok) successCount++;
+                } catch(e) {}
+            }
+            alert(`Deleted ${successCount}/${arr.length} items.`);
+            clearSelection();
+            loadFiles();
+            loadStats();
+        }
+
     </script>
 </body>
 </html>
