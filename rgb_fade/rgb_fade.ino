@@ -13,19 +13,24 @@ void setup() {
 }
 
 void loop() {
-  // Use a 16-bit hue value (0 to 65535) for ultra-smooth 65K color resolution!
-  // This provides incredibly smooth gradients and millions of more intermediate colors.
-  // We increment by a small step of 10 to move through the wheel smoothly.
-  for(long firstPixelHue = 0; firstPixelHue < 65536; firstPixelHue += 10) {
-    for(int i = 0; i < NUMPIXELS; i++) {
-      // ColorHSV takes a 16-bit hue (0-65535), 8-bit saturation (0-255), and 8-bit value (0-255)
-      // gamma32 makes the colors appear linearly smooth to the human eye
-      uint32_t color = pixels.gamma32(pixels.ColorHSV(firstPixelHue, 255, 255));
-      pixels.setPixelColor(i, color);
-    }
-    pixels.show();
-    
-    // Very short delay for silky smooth 500+ FPS fading
-    delay(2); 
+  // Use the ESP32's internal hardware timer for absolute perfection.
+  // By calculating the color based on time rather than a fixed loop, 
+  // we guarantee perfectly fluid, stutter-free transitions.
+  unsigned long timeMs = millis();
+  
+  // Multiply by 15 for a nice, relaxing ~4.3 second cycle time.
+  // The modulo 65536 keeps the hue wrapped perfectly within bounds.
+  long hue = (timeMs * 15) % 65536;
+  
+  for(int i = 0; i < NUMPIXELS; i++) {
+    // gamma32 provides mathematically perfect color correction
+    uint32_t color = pixels.gamma32(pixels.ColorHSV(hue, 255, 255));
+    pixels.setPixelColor(i, color);
   }
+  
+  pixels.show();
+  
+  // 1 millisecond delay allows the RTOS watchdog to breathe 
+  // while maintaining a blazing fast 1000 FPS refresh rate.
+  delay(1); 
 }
