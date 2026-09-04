@@ -10,6 +10,40 @@ const char index_html[] PROGMEM = R"rawliteral(
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
     <style>
+        .action-bar {
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--md-sys-color-secondary-container);
+            color: var(--md-sys-color-on-secondary-container);
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            animation: slideDown 0.3s cubic-bezier(0.2, 0, 0, 1);
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .action-bar .btn {
+            background: transparent;
+            color: var(--md-sys-color-on-secondary-container);
+            padding: 8px;
+        }
+        .action-bar .btn:hover {
+            background: rgba(0,0,0,0.1);
+        }
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-right: 12px;
+        }
+        .checkbox-container input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: var(--md-sys-color-primary);
+            cursor: pointer;
+        }
         :root {
             /* Light Theme (Material 3 Baseline) */
             --md-sys-color-primary: #6750A4;
@@ -721,6 +755,9 @@ let currentDir = "/";
                         li.setAttribute('ondragleave', `dragLeave(event)`);
                         li.setAttribute('ondrop', `dropOnFolder(event, '${fullPath}')`);
                         li.innerHTML = `
+                            <div class="checkbox-container" style="display:flex; align-items:center; margin-right:12px;">
+                                <input type="checkbox" onchange="toggleSelection('${fullPath}', this.checked)" ${selectedItems.has(fullPath) ? 'checked' : ''}>
+                            </div>
                             ${iconHtml}
                             <div class="file-info">
                                 <span class="file-name" onclick="changeDir('${fullPath}')">${file.name}</span>
@@ -738,6 +775,9 @@ let currentDir = "/";
                         li.setAttribute('ondragstart', `dragStart(event, '${fullPath}')`);
                         let playBtn = isPlayable ? `<button class="btn btn-text" onclick="playMedia('${fullPath}', '${file.name}')" title="View/Play"><span class="material-symbols-outlined">${isImg||isTxt?'visibility':'play_arrow'}</span></button>` : '';
                         li.innerHTML = `
+                            <div class="checkbox-container" style="display:flex; align-items:center; margin-right:12px;">
+                                <input type="checkbox" onchange="toggleSelection('${fullPath}', this.checked)" ${selectedItems.has(fullPath) ? 'checked' : ''}>
+                            </div>
                             ${iconHtml}
                             <div class="file-info">
                                 <span class="file-name" onclick="${isPlayable ? `playMedia('${fullPath}', '${file.name}')` : ''}">${file.name}</span>
