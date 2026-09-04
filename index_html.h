@@ -485,6 +485,19 @@ const char index_html[] PROGMEM = R"rawliteral(
             </div>
 
             <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:16px;">
+                
+            <div class="action-bar" id="actionBar">
+                <div style="display:flex; align-items:center; gap:16px;">
+                    <button class="icon-btn" onclick="clearSelection()"><span class="material-symbols-outlined">close</span></button>
+                    <strong id="selectedCount">0 selected</strong>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn" onclick="bulkCut()"><span class="material-symbols-outlined">content_cut</span></button>
+                    <button class="btn" onclick="bulkCopy()"><span class="material-symbols-outlined">content_copy</span></button>
+                    <button class="btn" onclick="bulkDelete()" style="color:var(--md-sys-color-error)"><span class="material-symbols-outlined">delete</span></button>
+                </div>
+            </div>
+
                 <div class="breadcrumbs" id="breadcrumb" style="margin-bottom:0;"></div>
                 <button id="paste-btn" class="btn" style="display:none; gap:4px; border-radius:100px; padding:0 16px; background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);" onclick="pasteFile()">
                     <span class="material-symbols-outlined">content_paste</span> Paste Here
@@ -609,6 +622,9 @@ const char index_html[] PROGMEM = R"rawliteral(
         }
 
 let currentDir = "/";
+
+        let selectedItems = new Set();
+
         loadFiles();
         loadStats();
 
@@ -741,7 +757,8 @@ let currentDir = "/";
             } catch (error) { console.error(error); }
         }
 
-        function changeDir(dir) { currentDir = dir; loadFiles(); }
+        function changeDir(dir) { currentDir = dir;
+            clearSelection(); loadFiles(); }
 
         async function createFolder() {
             let name = prompt("Enter new folder name:");
