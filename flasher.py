@@ -39,9 +39,18 @@ def main():
         tmp_dir = tempfile.mkdtemp()
         sketch_dir = os.path.join(tmp_dir, sketch_name)
         os.makedirs(sketch_dir)
-        staged_path = os.path.join(sketch_dir, os.path.basename(file_path))
-        shutil.copy2(file_path, staged_path)
-        print(f"[INFO] Staged sketch to: {sketch_dir}\n")
+        
+        # Copy ALL files from the source directory (not just the .ino)
+        # This ensures headers like "index_html.h" are available during compilation.
+        source_dir = os.path.dirname(os.path.abspath(file_path))
+        copied = []
+        for f in os.listdir(source_dir):
+            src = os.path.join(source_dir, f)
+            if os.path.isfile(src):
+                shutil.copy2(src, os.path.join(sketch_dir, f))
+                copied.append(f)
+        print(f"[INFO] Staged {len(copied)} file(s) to: {sketch_dir}")
+        print(f"[INFO] Files: {', '.join(copied)}\n")
         
         # Compile using the folder (not the file)
         compile_cmd = ["arduino-cli", "compile", "--fqbn", "esp32:esp32:esp32s3", sketch_dir]
