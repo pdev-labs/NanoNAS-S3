@@ -12,7 +12,7 @@
 // CONFIGURATION
 // ==========================================
 // Uncomment the line below to ENABLE the heavenly RGB fade background task
-#define ENABLE_RGB_FADE
+// #define ENABLE_RGB_FADE
 
 #ifdef ENABLE_RGB_FADE
 #include <Adafruit_NeoPixel.h>
@@ -56,7 +56,7 @@ fs::FS& getStorage() {
 const char* ap_ssid = "NanoNAS";
 const char* ap_pass = "nanopass";
 const char* sta_ssid = "YOUR_WIFI_SSID";
-const char* sta_pass = "gxtcgc599h5rb8d";
+const char* sta_pass = "YOUR_WIFI_PASSWORD";
 
 
 AsyncWebServer server(80);
