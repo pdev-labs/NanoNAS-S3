@@ -484,7 +484,12 @@ const char index_html[] PROGMEM = R"rawliteral(
                 </div>
             </div>
 
-            <div class="breadcrumbs" id="breadcrumb"></div>
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:16px;">
+                <div class="breadcrumbs" id="breadcrumb" style="margin-bottom:0;"></div>
+                <button id="paste-btn" class="btn" style="display:none; gap:4px; border-radius:100px; padding:0 16px; background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);" onclick="pasteFile()">
+                    <span class="material-symbols-outlined">content_paste</span> Paste Here
+                </button>
+            </div>
 
             <ul class="file-list" id="fileList"></ul>
         </div>
