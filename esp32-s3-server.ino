@@ -6,9 +6,31 @@
 #include "index_html.h"
 #include "EspUsbHost.h"
 #include <ESPmDNS.h>
+#include <Adafruit_NeoPixel.h>
 #include <Update.h>
 
+// Built-in RGB LED on most ESP32-S3 boards is usually on GPIO 48
+#define PIN 48
+#define NUMPIXELS 1
+Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
+// FreeRTOS Task for the heavenly slow-mo RGB Fade
+void rgbTask(void *pvParameters) {
+  pixels.begin();
+  pixels.setBrightness(100);
+  
+  while (true) {
+    for (long firstPixelHue = 0; firstPixelHue < 65536; firstPixelHue += 5) {
+      for (int i = 0; i < NUMPIXELS; i++) {
+        uint32_t color = pixels.gamma32(pixels.ColorHSV(firstPixelHue, 255, 255));
+        pixels.setPixelColor(i, color);
+      }
+      pixels.show();
+      // vTaskDelay is used instead of delay() to properly yield in FreeRTOS
+      vTaskDelay(pdMS_TO_TICKS(2));
+    }
+  }
+}
 EspUsbHost usb;
 EspUsbHostMscFS usbMassStorage;
 static uint32_t lastMountAttemptMs = 0;
@@ -39,6 +61,9 @@ struct AppUser {
   String role;
 };
 std::vector<AppUser> users;
+
+// Manual prototypes to fix arduino-cli build error
+AppUser* getAuthenticatedUser(AsyncWebServerRequest *request);
 
 void loadUsers() {
   users.clear();
@@ -383,6 +408,18 @@ public:
 void setup() {
   Serial.begin(115200);
   delay(1000);
+
+  // Spawn the heavenly RGB Fade on Core 0 so it runs in the background
+  // completely independent of the web server (which runs on Core 1)
+  xTaskCreatePinnedToCore(
+    rgbTask,       // Task function
+    "RGBTask",     // Name of task
+    2048,          // Stack size in words
+    NULL,          // Task input parameter
+    1,             // Priority of the task
+    NULL,          // Task handle
+    0              // Core where the task should run (Core 0)
+  );
 
   // Initialize LittleFS
   if (!LittleFS.begin(true)) {
