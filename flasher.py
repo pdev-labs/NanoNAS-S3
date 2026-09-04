@@ -34,23 +34,35 @@ def main():
         # arduino-cli requires the .ino to be inside a folder with the SAME name.
         # e.g. rgb_fade.ino MUST be in a folder called rgb_fade/
         sketch_name = os.path.splitext(os.path.basename(file_path))[0]
-        
-        # Create a temp directory and stage the sketch inside it
-        tmp_dir = tempfile.mkdtemp()
-        sketch_dir = os.path.join(tmp_dir, sketch_name)
-        os.makedirs(sketch_dir)
-        
-        # Copy ALL files from the source directory (not just the .ino)
-        # This ensures headers like "index_html.h" are available during compilation.
         source_dir = os.path.dirname(os.path.abspath(file_path))
-        copied = []
-        for f in os.listdir(source_dir):
-            src = os.path.join(source_dir, f)
-            if os.path.isfile(src):
-                shutil.copy2(src, os.path.join(sketch_dir, f))
-                copied.append(f)
-        print(f"[INFO] Staged {len(copied)} file(s) to: {sketch_dir}")
-        print(f"[INFO] Files: {', '.join(copied)}\n")
+        parent_dir_name = os.path.basename(source_dir)
+        
+        tmp_dir = None
+        
+        # If the sketch is already in a correctly named folder, compile it in-place.
+        # This preserves the arduino-cli build cache (which makes it 10x faster)
+        # and avoids the appearance of "getting stuck" on a full recompile.
+        if parent_dir_name == sketch_name:
+            print(f"[INFO] Sketch is correctly structured in '{parent_dir_name}/'. Compiling in-place.")
+            sketch_dir = source_dir
+        else:
+            import shutil
+            import tempfile
+            
+            print(f"[INFO] Sketch is NOT in a folder named '{sketch_name}'. Staging to temp dir...")
+            # Create a temp directory and stage the sketch inside it
+            tmp_dir = tempfile.mkdtemp()
+            sketch_dir = os.path.join(tmp_dir, sketch_name)
+            os.makedirs(sketch_dir)
+            
+            # Copy ALL files from the source directory
+            copied = []
+            for f in os.listdir(source_dir):
+                src = os.path.join(source_dir, f)
+                if os.path.isfile(src):
+                    shutil.copy2(src, os.path.join(sketch_dir, f))
+                    copied.append(f)
+            print(f"[INFO] Staged {len(copied)} file(s) to: {sketch_dir}")
         
         # Compile using the folder (not the file)
         compile_cmd = ["arduino-cli", "compile", "--fqbn", "esp32:esp32:esp32s3", sketch_dir]
@@ -58,7 +70,8 @@ def main():
         result = subprocess.run(compile_cmd)
         if result.returncode != 0:
             print("\n[ERROR] Compilation failed!")
-            shutil.rmtree(tmp_dir)
+            if tmp_dir:
+                shutil.rmtree(tmp_dir)
             sys.exit(1)
             
         # Upload using the folder
@@ -66,8 +79,9 @@ def main():
         print(f"\nRunning: {' '.join(upload_cmd)}")
         result = subprocess.run(upload_cmd)
         
-        # Clean up the temp folder
-        shutil.rmtree(tmp_dir)
+        # Clean up the temp folder if we created one
+        if tmp_dir:
+            shutil.rmtree(tmp_dir)
         
         if result.returncode == 0:
             print("\n[SUCCESS] Sketch successfully flashed to the ESP32-S3!")
