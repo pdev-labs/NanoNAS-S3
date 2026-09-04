@@ -141,7 +141,23 @@ const char* index_html = R"rawliteral(
             .stat-card { padding: 10px; }
             .stat-val { font-size: 1.2rem; }
         }
-    </style>
+    
+        .media-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 40px;
+            color: rgba(255, 255, 255, 0.7);
+            cursor: pointer;
+            user-select: none;
+            padding: 20px;
+            transition: 0.2s;
+            z-index: 2001;
+        }
+        .media-nav:hover { color: white; background: rgba(0,0,0,0.3); border-radius: 10px; }
+        #mediaNavPrev { left: 20px; }
+        #mediaNavNext { right: 20px; }
+</style>
 </head>
 <body>
 
@@ -245,6 +261,10 @@ const char* index_html = R"rawliteral(
 
 <script>
     let currentDir = "/";
+    let currentFiles = [];
+    let currentMediaIndex = -1;
+    let mediaList = [];
+
     const uploadArea = document.getElementById('uploadArea');
     const fileListEl = document.getElementById('fileList');
     const breadcrumbEl = document.getElementById('breadcrumb');
@@ -321,6 +341,7 @@ const char* index_html = R"rawliteral(
         try {
             const response = await fetch(`/list?dir=${encodeURIComponent(currentDir)}`);
             const files = await response.json();
+            currentFiles = files;
             fileListEl.innerHTML = '';
             
             if (currentDir !== "/") {
