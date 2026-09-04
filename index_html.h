@@ -463,25 +463,14 @@ const char index_html[] PROGMEM = R"rawliteral(
 </head>
 <body class="dark-theme">
 
-    <div id="login-screen">
-        <div class="login-card">
-            <span class="material-symbols-outlined">dns</span>
-            <h1 style="margin-bottom:24px; font-weight:400;">NanoNAS S3</h1>
-            <input type="text" id="username" class="input-field" placeholder="Username">
-            <input type="password" id="password" class="input-field" placeholder="Password">
-            <button class="btn btn-filled" style="width:100%; justify-content:center; height:48px;" onclick="login()">LOGIN</button>
-            <div id="login-error" style="color:var(--md-sys-color-error); margin-top:16px; display:none;">Invalid credentials</div>
-        </div>
-    </div>
-
-    <div id="app-screen" style="display:none; flex:1;">
+    <div id="app-screen" style="display:flex; flex:1; flex-direction:column;">
         
         <header class="app-bar">
             <span class="material-symbols-outlined" style="color:var(--md-sys-color-primary);">dns</span>
             <div class="app-bar-title">NanoNAS S3</div>
             <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme"><span class="material-symbols-outlined">dark_mode</span></button>
             <button class="icon-btn" onclick="openSettings()" title="Settings"><span class="material-symbols-outlined">settings</span></button>
-            <button class="icon-btn" onclick="logout()" title="Logout"><span class="material-symbols-outlined">logout</span></button>
+            
         </header>
 
         <div class="container">
@@ -608,63 +597,9 @@ const char index_html[] PROGMEM = R"rawliteral(
             }
         }
 
-        // --- Auth & State ---
-        let currentDir = "/";
-        let sessionToken = localStorage.getItem('token') || "";
-        
-        // Setup fetch interceptor for auth
-        const originalFetch = window.fetch;
-        window.fetch = async function() {
-            let [resource, config] = arguments;
-            if(!config) config = {};
-            if(!config.headers) config.headers = {};
-            if(sessionToken) config.headers['Authorization'] = 'Bearer ' + sessionToken;
-            let response = await originalFetch(resource, config);
-            if(response.status === 401) {
-                logout();
-            }
-            return response;
-        };
-
-        if (sessionToken) {
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('app-screen').style.display = 'flex';
-            loadFiles();
-            loadStats();
-        }
-
-        async function login() {
-            const u = document.getElementById('username').value;
-            const p = document.getElementById('password').value;
-            try {
-                let res = await originalFetch('/login', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body: `username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`
-                });
-                if(res.ok) {
-                    let data = await res.json();
-                    sessionToken = data.token;
-                    localStorage.setItem('token', sessionToken);
-                    document.getElementById('login-error').style.display = 'none';
-                    document.getElementById('login-screen').style.display = 'none';
-                    document.getElementById('app-screen').style.display = 'flex';
-                    loadFiles();
-                    loadStats();
-                } else {
-                    document.getElementById('login-error').style.display = 'block';
-                }
-            } catch(e) {
-                document.getElementById('login-error').style.display = 'block';
-            }
-        }
-
-        function logout() {
-            sessionToken = "";
-            localStorage.removeItem('token');
-            document.getElementById('app-screen').style.display = 'none';
-            document.getElementById('login-screen').style.display = 'flex';
-        }
+let currentDir = "/";
+        loadFiles();
+        loadStats();
 
         // --- File System ---
         function formatBytes(bytes) { 
@@ -747,7 +682,7 @@ const char index_html[] PROGMEM = R"rawliteral(
                         // We must use a fetch with token and create object URL, OR for simplicity, the NanoNAS /stream endpoint allows GET if authenticated via cookie... wait we use Token.
                         // Actually, if we just set the token in a cookie on login, browser fetches would work. But we use Bearer.
                         // Let's pass token in query param: /stream?file=X&token=Y
-                        iconHtml = `<div class="file-icon"><img src="/stream?file=${encodeURIComponent(fullPath)}&token=${sessionToken}" loading="lazy" alt="thumb"></div>`;
+                        iconHtml = `<div class="file-icon"><img src="/stream?file=${encodeURIComponent(fullPath)}" loading="lazy" alt="thumb"></div>`;
                     } else {
                         iconHtml = `<div class="file-icon"><span class="material-symbols-outlined">${getIcon(file.name, file.isDir)}</span></div>`;
                     }
@@ -760,7 +695,7 @@ const char index_html[] PROGMEM = R"rawliteral(
                                 <span class="file-size">-</span>
                             </div>
                             <div class="actions">
-                                <a href="/download_dir?dir=${encodeURIComponent(fullPath)}&token=${sessionToken}" class="btn btn-text" title="Download ZIP"><span class="material-symbols-outlined">archive</span></a>
+                                <a href="/download_dir?dir=${encodeURIComponent(fullPath)}" class="btn btn-text" title="Download ZIP"><span class="material-symbols-outlined">archive</span></a>
                                 <button class="btn btn-error" onclick="deleteFile('${fullPath}', true)" title="Delete Folder"><span class="material-symbols-outlined">delete</span></button>
                             </div>
                         `;
@@ -774,7 +709,7 @@ const char index_html[] PROGMEM = R"rawliteral(
                             </div>
                             <div class="actions">
                                 ${playBtn}
-                                <a href="/download?file=${encodeURIComponent(fullPath)}&token=${sessionToken}" class="btn btn-text" download title="Download"><span class="material-symbols-outlined">download</span></a>
+                                <a href="/download?file=${encodeURIComponent(fullPath)}" class="btn btn-text" download title="Download"><span class="material-symbols-outlined">download</span></a>
                                 <button class="btn btn-error" onclick="deleteFile('${fullPath}', false)" title="Delete"><span class="material-symbols-outlined">delete</span></button>
                             </div>
                         `;
@@ -841,7 +776,7 @@ const char index_html[] PROGMEM = R"rawliteral(
             const container = document.getElementById('mediaContainer');
             document.getElementById('mediaModal').style.display = 'flex';
             
-            let url = `/stream?file=${encodeURIComponent(path)}&token=${sessionToken}`;
+            let url = `/stream?file=${encodeURIComponent(path)}`;
             if (imgExts.includes(ext)) {
                 container.innerHTML = `<img src="${url}" style="max-width:100%; max-height:70vh; border-radius:8px;">`;
             } else if (vidExts.includes(ext)) {
