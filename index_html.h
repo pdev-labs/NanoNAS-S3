@@ -459,7 +459,9 @@ const char index_html[] PROGMEM = R"rawliteral(
             font-size: 16px;
         }
         .input-field:focus { outline: 2px solid var(--md-sys-color-primary); border-color: transparent; }
-    </style>
+    
+        .file-item.drag-hover { background-color: var(--md-sys-color-primary-container); border: 2px dashed var(--md-sys-color-primary); }
+</style>
 </head>
 <body class="dark-theme">
 
@@ -692,6 +694,11 @@ let currentDir = "/";
                     }
 
                     if (file.isDir) {
+                        li.setAttribute('draggable', 'true');
+                        li.setAttribute('ondragstart', `dragStart(event, '${fullPath}')`);
+                        li.setAttribute('ondragover', `dragOver(event)`);
+                        li.setAttribute('ondragleave', `dragLeave(event)`);
+                        li.setAttribute('ondrop', `dropOnFolder(event, '${fullPath}')`);
                         li.innerHTML = `
                             ${iconHtml}
                             <div class="file-info">
@@ -704,6 +711,8 @@ let currentDir = "/";
                             </div>
                         `;
                     } else {
+                        li.setAttribute('draggable', 'true');
+                        li.setAttribute('ondragstart', `dragStart(event, '${fullPath}')`);
                         let playBtn = isPlayable ? `<button class="btn btn-text" onclick="playMedia('${fullPath}', '${file.name}')" title="View/Play"><span class="material-symbols-outlined">${isImg||isTxt?'visibility':'play_arrow'}</span></button>` : '';
                         li.innerHTML = `
                             ${iconHtml}
@@ -798,6 +807,57 @@ let currentDir = "/";
             if(mediaList.length === 0) return;
             currentMediaIndex = (currentMediaIndex - 1 + mediaList.length) % mediaList.length;
             playMedia(mediaList[currentMediaIndex].path, mediaList[currentMediaIndex].name);
+        }
+
+        
+        // --- Drag and Drop File Moving ---
+        function dragStart(e, path) {
+            e.dataTransfer.setData('text/plain', path);
+            e.dataTransfer.effectAllowed = 'move';
+        }
+        function dragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-hover');
+        }
+        function dragLeave(e) {
+            e.currentTarget.classList.remove('drag-hover');
+        }
+        async function dropOnFolder(e, targetFolderPath) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-hover');
+            
+            // Check if OS files were dropped (Smart Upload)
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                let originalDir = currentDir;
+                currentDir = targetFolderPath;
+                await handleFiles(e.dataTransfer.files);
+                currentDir = originalDir;
+                loadFiles();
+                return;
+            }
+            
+            // Otherwise it's a move operation within the UI
+            let sourcePath = e.dataTransfer.getData('text/plain');
+            if (!sourcePath || sourcePath === targetFolderPath) return;
+            
+            let sourceName = sourcePath.substring(sourcePath.lastIndexOf('/') + 1);
+            let destPath = targetFolderPath + "/" + sourceName;
+            if (sourcePath === destPath) return; // Same location
+            
+            try {
+                let res = await fetch('/api/move', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: `from=${encodeURIComponent(sourcePath)}&to=${encodeURIComponent(destPath)}`
+                });
+                if(res.ok) {
+                    loadFiles();
+                } else {
+                    alert("Failed to move file.");
+                }
+            } catch(e) {
+                alert("Error moving file.");
+            }
         }
 
         // --- Upload Logic ---
