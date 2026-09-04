@@ -879,62 +879,81 @@ let currentDir = "/";
         
         // --- Clipboard Logic ---
         function updatePasteButton() {
-            let cb = localStorage.getItem('clipboard');
+            let cb = sessionStorage.getItem('clipboardData');
             let btn = document.getElementById('paste-btn');
             if (cb) {
+                let arr = JSON.parse(cb);
                 btn.style.display = 'flex';
-                let data = JSON.parse(cb);
-                btn.title = `Paste ${data.path}`;
+                btn.innerHTML = `<span class="material-symbols-outlined">content_paste</span> Paste ${arr.length} item${arr.length !== 1 ? 's' : ''}`;
             } else {
                 btn.style.display = 'none';
             }
         }
         function copyFile(path) {
-            localStorage.setItem('clipboard', JSON.stringify({action: 'copy', path: path}));
+            sessionStorage.setItem('clipboardAction', 'copy');
+            sessionStorage.setItem('clipboardData', JSON.stringify([path]));
             updatePasteButton();
         }
         function cutFile(path) {
-            localStorage.setItem('clipboard', JSON.stringify({action: 'cut', path: path}));
+            sessionStorage.setItem('clipboardAction', 'move');
+            sessionStorage.setItem('clipboardData', JSON.stringify([path]));
             updatePasteButton();
         }
         async function pasteFile() {
-            let cb = localStorage.getItem('clipboard');
-            if (!cb) return;
-            let data = JSON.parse(cb);
+            let cbData = sessionStorage.getItem('clipboardData');
+            let action = sessionStorage.getItem('clipboardAction');
+            if (!cbData || !action) return;
+            let arr = JSON.parse(cbData);
+            let btn = document.getElementById('paste-btn');
             
-            let sourcePath = data.path;
-            let sourceName = sourcePath.substring(sourcePath.lastIndexOf('/') + 1);
-            let destPath = currentDir + "/" + sourceName;
-            if (currentDir === "/") destPath = "/" + sourceName;
-            if (sourcePath === destPath) return; // Same location
-            
-            let endpoint = data.action === 'cut' ? '/api/move' : '/api/copy';
-            
-            try {
-                // Show loading spinner for copy since it takes a while
-                if (data.action === 'copy') {
-                    document.getElementById('file-list').innerHTML = `<li class="file-item" style="justify-content:center;">Copying... this may take a while.</li>`;
-                }
+            for (let i = 0; i < arr.length; i++) {
+                let sourcePath = arr[i];
+                let sourceName = sourcePath.substring(sourcePath.lastIndexOf('/') + 1);
+                let destPath = currentDir + "/" + sourceName;
+                if (currentDir === "/") destPath = "/" + sourceName;
+                if (sourcePath === destPath) continue; // Same location
                 
-                let res = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body: `from=${encodeURIComponent(sourcePath)}&to=${encodeURIComponent(destPath)}`
-                });
-                if(res.ok) {
-                    if (data.action === 'cut') {
-                        localStorage.removeItem('clipboard'); // clear clipboard on move
+                let endpoint = action === 'move' ? '/api/move' : '/api/copy';
+                
+                try {
+                    btn.innerHTML = `<span class="material-symbols-outlined">pending</span> Pasting ${i+1}/${arr.length}...`;
+                    
+                    let res = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: `from=${encodeURIComponent(sourcePath)}&to=${encodeURIComponent(destPath)}`
+                    });
+                    
+                    if (res.ok && action === 'copy') {
+                        let finished = false;
+                        while (!finished) {
+                            await new Promise(r => setTimeout(r, 1000));
+                            let statRes = await fetch('/api/copy_status');
+                            if (statRes.ok) {
+                                let status = await statRes.json();
+                                if (status.scanning) {
+                                    btn.innerHTML = `<span class="material-symbols-outlined">pending</span> Scanning ${i+1}/${arr.length}...`;
+                                } else {
+                                    let pct = status.total > 0 ? Math.round((status.copied / status.total) * 100) : 100;
+                                    btn.innerHTML = `<span class="material-symbols-outlined">pending</span> Pasting ${i+1}/${arr.length} (${pct}%)...`;
+                                }
+                                finished = status.finished;
+                            }
+                        }
+                    } else if (!res.ok) {
+                        console.error(`Failed to ${action} ${sourcePath}`);
                     }
-                    loadFiles();
-                    updatePasteButton();
-                } else {
-                    alert(`Failed to ${data.action} file.`);
-                    loadFiles();
+                } catch(e) {
+                    console.error(`Error during ${action} ${sourcePath}`, e);
                 }
-            } catch(e) {
-                alert(`Error during ${data.action}.`);
-                loadFiles();
             }
+            
+            if (action === 'move') {
+                sessionStorage.removeItem('clipboardData');
+                sessionStorage.removeItem('clipboardAction');
+            }
+            updatePasteButton();
+            loadFiles();
         }
         
         // Ensure paste button state is updated on load
