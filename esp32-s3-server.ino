@@ -452,6 +452,22 @@ void setup() {
   });
 
   // Delete File/Folder
+  // API: Move / Rename
+  server.on("/api/move", HTTP_POST, [](AsyncWebServerRequest *request){
+    if(!checkAuth(request, true)) return;
+    if(request->hasParam("from", true) && request->hasParam("to", true)) {
+      String fromPath = sanitizePath(request->getParam("from", true)->value());
+      String toPath = sanitizePath(request->getParam("to", true)->value());
+      if(getStorage().rename(fromPath, toPath)) {
+        request->send(200, "text/plain", "OK");
+      } else {
+        request->send(500, "text/plain", "Move failed");
+      }
+    } else {
+      request->send(400, "text/plain", "Missing from or to parameter");
+    }
+  });
+
   server.on("/delete", HTTP_DELETE, [](AsyncWebServerRequest *request){
     if(!checkAuth(request, true)) return;
     if (request->hasParam("file")) {
