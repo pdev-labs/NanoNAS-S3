@@ -28,18 +28,38 @@ def main():
         print(f"\n[INFO] Detected an Arduino sketch (.ino).")
         print(f"[INFO] This will compile and flash using arduino-cli to {port}...\n")
         
-        # Compile
-        compile_cmd = ["arduino-cli", "compile", "--fqbn", "esp32:esp32:esp32s3", file_path]
+        import shutil
+        import tempfile
+        
+        # arduino-cli requires the .ino to be inside a folder with the SAME name.
+        # e.g. rgb_fade.ino MUST be in a folder called rgb_fade/
+        sketch_name = os.path.splitext(os.path.basename(file_path))[0]
+        
+        # Create a temp directory and stage the sketch inside it
+        tmp_dir = tempfile.mkdtemp()
+        sketch_dir = os.path.join(tmp_dir, sketch_name)
+        os.makedirs(sketch_dir)
+        staged_path = os.path.join(sketch_dir, os.path.basename(file_path))
+        shutil.copy2(file_path, staged_path)
+        print(f"[INFO] Staged sketch to: {sketch_dir}\n")
+        
+        # Compile using the folder (not the file)
+        compile_cmd = ["arduino-cli", "compile", "--fqbn", "esp32:esp32:esp32s3", sketch_dir]
         print(f"Running: {' '.join(compile_cmd)}")
         result = subprocess.run(compile_cmd)
         if result.returncode != 0:
             print("\n[ERROR] Compilation failed!")
+            shutil.rmtree(tmp_dir)
             sys.exit(1)
             
-        # Upload
-        upload_cmd = ["arduino-cli", "upload", "-p", port, "--fqbn", "esp32:esp32:esp32s3", file_path]
+        # Upload using the folder
+        upload_cmd = ["arduino-cli", "upload", "-p", port, "--fqbn", "esp32:esp32:esp32s3", sketch_dir]
         print(f"\nRunning: {' '.join(upload_cmd)}")
         result = subprocess.run(upload_cmd)
+        
+        # Clean up the temp folder
+        shutil.rmtree(tmp_dir)
+        
         if result.returncode == 0:
             print("\n[SUCCESS] Sketch successfully flashed to the ESP32-S3!")
         else:
