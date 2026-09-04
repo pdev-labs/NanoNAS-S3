@@ -1,4 +1,6 @@
+import os
 
+material_html = r"""
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
@@ -956,3 +958,9 @@ const char index_html[] PROGMEM = R"rawliteral(
 </body>
 </html>
 )rawliteral";
+"""
+
+with open("index_html.h", "w") as f:
+    f.write(material_html)
+
+print("index_html.h updated with Material Design!")
