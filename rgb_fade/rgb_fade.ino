@@ -14,9 +14,9 @@ void setup() {
 
 void loop() {
   // Use a 16-bit hue value (0 to 65535) for ultra-smooth 65K color resolution!
-  // We increment by an incredibly small step of 5 to make it move in slow-motion.
-  // This gives you that "heavenly" smooth transition.
-  for(long firstPixelHue = 0; firstPixelHue < 65536; firstPixelHue += 5) {
+  // We increment by 1 to display EVERY SINGLE intermediate color.
+  // This gives you the ultimate "heavenly" slow-motion transition.
+  for(long firstPixelHue = 0; firstPixelHue < 65536; firstPixelHue += 1) {
     for(int i = 0; i < NUMPIXELS; i++) {
       // ColorHSV takes a 16-bit hue (0-65535), 8-bit saturation (0-255), and 8-bit value (0-255)
       // gamma32 makes the colors appear linearly smooth to the human eye
@@ -25,7 +25,8 @@ void loop() {
     }
     pixels.show();
     
-    // Very short delay for silky smooth 500+ FPS fading
-    delay(2); 
+    // 10ms delay * 65536 steps = ~10.9 minutes per full rainbow cycle!
+    // It will be glacier-paced and incredibly smooth.
+    delay(10); 
   }
 }
