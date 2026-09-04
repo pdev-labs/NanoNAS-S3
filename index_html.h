@@ -157,6 +157,24 @@ const char* index_html = R"rawliteral(
         .media-nav:hover { color: white; background: rgba(0,0,0,0.3); border-radius: 10px; }
         #mediaNavPrev { left: 20px; }
         #mediaNavNext { right: 20px; }
+
+        body.light-theme {
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(0, 0, 0, 0.1);
+            background: linear-gradient(-45deg, #f8fafc, #e2e8f0, #cbd5e1, #f1f5f9);
+        }
+        body.light-theme h1 { color: #0f172a; text-shadow: none; }
+        body.light-theme .stat-card { background: rgba(0, 0, 0, 0.03); }
+        body.light-theme .stat-card:hover { background: rgba(0, 0, 0, 0.05); }
+        body.light-theme .stat-val { color: #0f172a; }
+        body.light-theme .file-item { background: rgba(0,0,0, 0.03); }
+        body.light-theme .file-item:hover { background: rgba(0,0,0, 0.06); }
+        body.light-theme .btn-delete { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+        body.light-theme .upload-area { background: rgba(59, 130, 246, 0.05); }
+        body.light-theme .upload-area p { color: #1d4ed8; }
+        body.light-theme textarea { background: rgba(255, 255, 255, 0.5) !important; color: #1e293b !important; }
 </style>
 </head>
 <body>
@@ -261,6 +279,53 @@ const char* index_html = R"rawliteral(
 
 <script>
     let currentDir = "/";
+    // Theme logic
+    if(localStorage.getItem('theme') === 'light') document.body.classList.add('light-theme');
+    function toggleTheme() {
+        document.body.classList.toggle('light-theme');
+        localStorage.setItem('theme', document.body.classList.contains('light-theme') ? 'light' : 'dark');
+    }
+
+    // Text Editor logic
+    let editingPath = "";
+    async function openEditor(path, name) {
+        editingPath = path;
+        document.getElementById('editorTitle').innerText = 'Editing: ' + name;
+        document.getElementById('editorContent').value = 'Loading...';
+        document.getElementById('editorModal').style.display = 'flex';
+        
+        try {
+            let res = await fetch(`/stream?file=${encodeURIComponent(path)}`);
+            if(!res.ok) throw new Error("Failed to load");
+            let text = await res.text();
+            document.getElementById('editorContent').value = text;
+        } catch(e) {
+            document.getElementById('editorContent').value = "Error loading file.";
+        }
+    }
+    
+    async function saveEditor() {
+        let content = document.getElementById('editorContent').value;
+        let btn = document.querySelector('#editorModal .btn-primary');
+        let oldText = btn.innerText;
+        btn.innerText = "Saving...";
+        
+        try {
+            let res = await fetch(`/upload_chunk?name=${encodeURIComponent(editingPath)}&append=0`, { 
+                method: 'POST', 
+                body: new Blob([content]) 
+            });
+            if(res.ok) {
+                alert("File saved successfully!");
+                document.getElementById('editorModal').style.display = 'none';
+            } else alert("Failed to save.");
+        } catch(e) {
+            alert("Error saving.");
+        }
+        btn.innerText = oldText;
+        loadFiles();
+    }
+
     let currentFiles = [];
     let currentMediaIndex = -1;
     let mediaList = [];
@@ -299,9 +364,10 @@ const char* index_html = R"rawliteral(
         return '📦';
     }
 
+    function isTextFile(name) { return ['txt', 'csv', 'json', 'md', 'ino', 'js', 'css', 'html', 'py'].includes(name.split('.').pop().toLowerCase()); }
     function isPlayable(name) {
         const ext = name.split('.').pop().toLowerCase();
-        return ['mp4', 'webm', 'mp3', 'wav', 'ogg', 'jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+        return ['mp4', 'webm', 'mp3', 'wav', 'ogg', 'jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) || isTextFile(name);
     }
     
     function updateBreadcrumb() {
@@ -375,6 +441,7 @@ const char* index_html = R"rawliteral(
                         </div>
                         <div class="actions">
                             <button class="btn-delete" onclick="deleteFile('${fullPath}', true)">🗑️ Delete</button>
+                            <a href="/download_dir?dir=${encodeURIComponent(fullPath)}" class="btn-download">📦 Zip</a>
                         </div>
                     `;
                 } else {
@@ -390,6 +457,7 @@ const char* index_html = R"rawliteral(
                             ${streamBtn}
                             <a href="/download?file=${encodeURIComponent(fullPath)}" class="btn-download" download>⬇️ Download</a>
                             <button class="btn-delete" onclick="deleteFile('${fullPath}', false)">🗑️ Delete</button>
+                            <a href="/download_dir?dir=${encodeURIComponent(fullPath)}" class="btn-download">📦 Zip</a>
                         </div>
                     `;
                 }
@@ -409,70 +477,71 @@ const char* index_html = R"rawliteral(
         } catch (e) {}
     }
 
-    async function handleFiles(files) {
-        if (files.length === 0) return;
-        const file = files[0];
-        
-        if (file.size > 1.5 * 1024 * 1024) {
-            alert("File is too large for LittleFS! Limit is ~1.5MB.");
-            return;
-        }
 
+    async function handleFiles(files) {
+        if (!files || files.length === 0) return;
         const pContainer = document.getElementById('progress-bar-container');
         const pBar = document.getElementById('progress-bar');
         const pText = document.getElementById('progress-text');
         
         pContainer.style.display = 'block';
-        pBar.style.width = '0%';
-        pText.innerText = '0%';
-        
-        const chunkSize = 1024 * 256; 
-        const totalChunks = Math.ceil(file.size / chunkSize);
-        let uploadedBytes = 0;
-        
-        let fullPath = (currentDir === "/" ? "" : currentDir) + "/" + file.name;
 
-        for (let i = 0; i < totalChunks; i++) {
-            const start = i * chunkSize;
-            const end = Math.min(start + chunkSize, file.size);
-            const chunk = file.slice(start, end);
-            const append = (i === 0) ? '0' : '1';
+        for (let idx = 0; idx < files.length; idx++) {
+            const file = files[idx];
+            if (file.size > 1.5 * 1024 * 1024 && currentDir === "/" && !document.querySelector('.storage-bar-fill')) { 
+                // Only warn if they're likely on LittleFS (storage bar fill doesn't exist for LittleFS in stats right now wait no... just let it fail or upload)
+                // Actually let's just omit this specific check and let the upload fail if they are out of space.
+            }
             
-            let success = false;
-            let retries = 3;
+            pBar.style.width = '0%';
+            pText.innerText = `[${idx+1}/${files.length}] Uploading ${file.name} (0%)`;
             
-            while (!success && retries > 0) {
-                try {
-                    const response = await fetch(`/upload_chunk?name=${encodeURIComponent(fullPath)}&append=${append}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/octet-stream' },
-                        body: chunk
-                    });
-                    
-                    if (response.ok) {
-                        success = true;
-                        uploadedBytes += (end - start);
-                        const percent = ((uploadedBytes / file.size) * 100).toFixed(1);
-                        pBar.style.width = percent + '%';
-                        pText.innerText = percent + '% (Chunk ' + (i+1) + '/' + totalChunks + ')';
-                    } else {
+            const chunkSize = 1024 * 256; 
+            const totalChunks = Math.ceil(file.size / chunkSize) || 1;
+            let uploadedBytes = 0;
+            let fullPath = (currentDir === "/" ? "" : currentDir) + "/" + file.name;
+
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * chunkSize;
+                const end = Math.min(start + chunkSize, file.size);
+                const chunk = file.slice(start, end);
+                const append = (i === 0) ? '0' : '1';
+                
+                let success = false;
+                let retries = 3;
+                
+                while (!success && retries > 0) {
+                    try {
+                        const response = await fetch(`/upload_chunk?name=${encodeURIComponent(fullPath)}&append=${append}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/octet-stream' },
+                            body: chunk
+                        });
+                        if (response.ok) {
+                            success = true;
+                            uploadedBytes += (end - start);
+                            const percent = ((uploadedBytes / file.size) * 100).toFixed(1);
+                            pBar.style.width = percent + '%';
+                            pText.innerText = `[${idx+1}/${files.length}] Uploading ${file.name} (${percent}%)`;
+                        } else {
+                            retries--;
+                            await new Promise(r => setTimeout(r, 1000));
+                        }
+                    } catch (e) {
                         retries--;
                         await new Promise(r => setTimeout(r, 1000));
                     }
-                } catch (e) {
-                    retries--;
-                    await new Promise(r => setTimeout(r, 1000));
+                }
+                if (!success) {
+                    alert(`Upload failed for ${file.name}`);
+                    break;
                 }
             }
-            if (!success) {
-                alert('Upload failed definitively at chunk ' + (i+1));
-                pContainer.style.display = 'none';
-                return;
-            }
         }
-        pText.innerText = 'Upload Complete!';
+        pText.innerText = 'All Uploads Complete!';
         setTimeout(() => { pContainer.style.display = 'none'; loadFiles(); }, 1000);
     }
+
 
     async function deleteFile(path, isDir) {
         if (!confirm(`Are you sure you want to delete ${path}?`)) return;
@@ -601,6 +670,9 @@ const char* index_html = R"rawliteral(
             container.innerHTML = `<video controls autoplay style="max-width:100%; max-height:80vh; border-radius:12px;"><source src="${url}" type="video/${ext}"></video>`;
         } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
             container.innerHTML = `<img src="${url}" style="max-width:100%; max-height:80vh; border-radius:12px;">`;
+        } else if (isTextFile(name)) {
+            closeModal();
+            return openEditor(path, name);
         } else {
             container.innerHTML = `<audio controls autoplay style="width:300px;"><source src="${url}" type="audio/${ext}"></audio>`;
         }
