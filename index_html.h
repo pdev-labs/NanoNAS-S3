@@ -759,8 +759,8 @@ let currentDir = "/";
                                 <input type="checkbox" onchange="toggleSelection('${fullPath}', this.checked)" ${selectedItems.has(fullPath) ? 'checked' : ''}>
                             </div>
                             ${iconHtml}
-                            <div class="file-info">
-                                <span class="file-name" onclick="changeDir('${fullPath}')">${file.name}</span>
+                            <div class="file-info" onclick="changeDir('${fullPath}')" style="cursor: pointer;">
+                                <span class="file-name">${file.name}</span>
                                 <span class="file-size">-</span>
                             </div>
                             <div class="actions">
@@ -779,8 +779,8 @@ let currentDir = "/";
                                 <input type="checkbox" onchange="toggleSelection('${fullPath}', this.checked)" ${selectedItems.has(fullPath) ? 'checked' : ''}>
                             </div>
                             ${iconHtml}
-                            <div class="file-info">
-                                <span class="file-name" onclick="${isPlayable ? `playMedia('${fullPath}', '${file.name}')` : ''}">${file.name}</span>
+                            <div class="file-info" ${isPlayable ? `onclick="playMedia('${fullPath}', '${file.name}')" style="cursor: pointer;"` : ''}>
+                                <span class="file-name">${file.name}</span>
                                 <span class="file-size">${formatBytes(file.size)}</span>
                             </div>
                             <div class="actions">
