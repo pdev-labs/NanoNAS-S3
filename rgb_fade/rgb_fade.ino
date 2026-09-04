@@ -9,30 +9,23 @@ Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
 void setup() {
   pixels.begin();
-  pixels.setBrightness(50); // Set brightness to 50 (max is 255) to not blind you
-}
-
-// Helper to convert HSV to RGB for a smooth rainbow fade
-uint32_t Wheel(byte WheelPos) {
-  WheelPos = 255 - WheelPos;
-  if(WheelPos < 85) {
-    return pixels.Color(255 - WheelPos * 3, 0, WheelPos * 3);
-  }
-  if(WheelPos < 170) {
-    WheelPos -= 85;
-    return pixels.Color(0, WheelPos * 3, 255 - WheelPos * 3);
-  }
-  WheelPos -= 170;
-  return pixels.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+  pixels.setBrightness(100); // Increased brightness slightly
 }
 
 void loop() {
-  // Smoothly cycle through all colors in the color wheel
-  for(int j=0; j<256; j++) {
-    for(int i=0; i<NUMPIXELS; i++) {
-      pixels.setPixelColor(i, Wheel((i * 1 + j) & 255));
+  // Use a 16-bit hue value (0 to 65535) for ultra-smooth 65K color resolution!
+  // This provides incredibly smooth gradients and millions of more intermediate colors.
+  // We increment by a small step of 10 to move through the wheel smoothly.
+  for(long firstPixelHue = 0; firstPixelHue < 65536; firstPixelHue += 10) {
+    for(int i = 0; i < NUMPIXELS; i++) {
+      // ColorHSV takes a 16-bit hue (0-65535), 8-bit saturation (0-255), and 8-bit value (0-255)
+      // gamma32 makes the colors appear linearly smooth to the human eye
+      uint32_t color = pixels.gamma32(pixels.ColorHSV(firstPixelHue, 255, 255));
+      pixels.setPixelColor(i, color);
     }
     pixels.show();
-    delay(20); // Adjust this delay to make the fade faster or slower
+    
+    // Very short delay for silky smooth 500+ FPS fading
+    delay(2); 
   }
 }
