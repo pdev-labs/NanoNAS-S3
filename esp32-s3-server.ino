@@ -6,9 +6,16 @@
 #include "index_html.h"
 #include "EspUsbHost.h"
 #include <ESPmDNS.h>
-#include <Adafruit_NeoPixel.h>
 #include <Update.h>
 
+// ==========================================
+// CONFIGURATION
+// ==========================================
+// Uncomment the line below to ENABLE the heavenly RGB fade background task
+#define ENABLE_RGB_FADE
+
+#ifdef ENABLE_RGB_FADE
+#include <Adafruit_NeoPixel.h>
 // Built-in RGB LED on most ESP32-S3 boards is usually on GPIO 48
 #define PIN 48
 #define NUMPIXELS 1
@@ -31,6 +38,7 @@ void rgbTask(void *pvParameters) {
     }
   }
 }
+#endif
 EspUsbHost usb;
 EspUsbHostMscFS usbMassStorage;
 static uint32_t lastMountAttemptMs = 0;
@@ -411,6 +419,7 @@ void setup() {
 
   // Spawn the heavenly RGB Fade on Core 0 so it runs in the background
   // completely independent of the web server (which runs on Core 1)
+#ifdef ENABLE_RGB_FADE
   xTaskCreatePinnedToCore(
     rgbTask,       // Task function
     "RGBTask",     // Name of task
@@ -420,6 +429,7 @@ void setup() {
     NULL,          // Task handle
     0              // Core where the task should run (Core 0)
   );
+#endif
 
   // Initialize LittleFS
   if (!LittleFS.begin(true)) {
