@@ -143,6 +143,110 @@ bool copyRecursive(String srcPath, String destPath) {
 }
 
 // Helper to get mime type
+
+#include <vector>
+
+enum CopyState {
+  COPY_IDLE,
+  COPY_SCANNING,
+  COPY_FILE
+};
+
+struct CopyJob {
+  CopyState state = COPY_IDLE;
+  String srcBase;
+  String destBase;
+  std::vector<String> scanDirsSrc;
+  std::vector<String> scanDirsDest;
+  std::vector<String> copyFilesSrc;
+  std::vector<String> copyFilesDest;
+  
+  fs::File currentSrc;
+  fs::File currentDest;
+  size_t totalBytesToCopy = 0;
+  size_t bytesCopied = 0;
+  
+  bool finished = false;
+  bool success = true;
+};
+
+CopyJob currentJob;
+
+void processCopyJob() {
+  if (currentJob.state == COPY_IDLE) return;
+
+  if (currentJob.state == COPY_SCANNING) {
+    if (currentJob.scanDirsSrc.empty()) {
+      currentJob.state = COPY_FILE;
+      return;
+    }
+    
+    String srcDir = currentJob.scanDirsSrc.back();
+    String destDir = currentJob.scanDirsDest.back();
+    currentJob.scanDirsSrc.pop_back();
+    currentJob.scanDirsDest.pop_back();
+    
+    getStorage().mkdir(destDir);
+    
+    fs::File dir = getStorage().open(srcDir);
+    if (dir && dir.isDirectory()) {
+      fs::File file = dir.openNextFile();
+      while (file) {
+        String newSrc = srcDir + "/" + file.name();
+        String newDest = destDir + "/" + file.name();
+        if (file.isDirectory()) {
+          currentJob.scanDirsSrc.push_back(newSrc);
+          currentJob.scanDirsDest.push_back(newDest);
+        } else {
+          currentJob.copyFilesSrc.push_back(newSrc);
+          currentJob.copyFilesDest.push_back(newDest);
+          currentJob.totalBytesToCopy += file.size();
+        }
+        file = dir.openNextFile();
+      }
+    }
+    return; // Yield to loop
+  }
+
+  if (currentJob.state == COPY_FILE) {
+    if (!currentJob.currentSrc) {
+      if (currentJob.copyFilesSrc.empty()) {
+        currentJob.finished = true;
+        currentJob.state = COPY_IDLE;
+        return;
+      }
+      
+      String src = currentJob.copyFilesSrc.back();
+      String dest = currentJob.copyFilesDest.back();
+      currentJob.copyFilesSrc.pop_back();
+      currentJob.copyFilesDest.pop_back();
+      
+      currentJob.currentSrc = getStorage().open(src, "r");
+      currentJob.currentDest = getStorage().open(dest, "w");
+      if (!currentJob.currentSrc || !currentJob.currentDest) {
+        currentJob.success = false;
+        currentJob.finished = true;
+        currentJob.state = COPY_IDLE;
+        if (currentJob.currentSrc) currentJob.currentSrc.close();
+        if (currentJob.currentDest) currentJob.currentDest.close();
+        return;
+      }
+    }
+    
+    // Copy a chunk
+    uint8_t buf[8192];
+    size_t len = currentJob.currentSrc.read(buf, sizeof(buf));
+    if (len > 0) {
+      currentJob.currentDest.write(buf, len);
+      currentJob.bytesCopied += len;
+    } else {
+      currentJob.currentSrc.close();
+      currentJob.currentDest.close();
+    }
+    return; // Yield to loop
+  }
+}
+
 String getContentType(String filename) {
   if (filename.endsWith(".html")) return "text/html";
   else if (filename.endsWith(".css")) return "text/css";
