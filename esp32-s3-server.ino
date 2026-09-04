@@ -110,12 +110,18 @@ bool copyRecursive(String srcPath, String destPath) {
     fs::File dest = getStorage().open(destPath, "w");
     if (!dest) { src.close(); return false; }
     
-    uint8_t buf[4096];
+    uint8_t *buf = (uint8_t *)malloc(4096);
+    if (!buf) {
+      dest.close();
+      src.close();
+      return false;
+    }
     size_t len = 0;
-    while ((len = src.read(buf, sizeof(buf))) > 0) {
+    while ((len = src.read(buf, 4096)) > 0) {
       dest.write(buf, len);
       delay(1); // prevent WDT
     }
+    free(buf);
     dest.close();
     src.close();
     return true;
