@@ -48,8 +48,12 @@ void rgbTask(void *pvParameters) {
     
     switch(sysState) {
       case STATE_IDLE:
-        // Breathing Blue
-        color = pixels.Color(0, 0, pulse);
+        // Breathing Blue if connected to Hotspot, Cyan if hosting its own Hotspot
+        if (WiFi.getMode() == WIFI_AP_STA || WiFi.getMode() == WIFI_AP) {
+            color = pixels.Color(0, pulse, pulse); // Cyan
+        } else {
+            color = pixels.Color(0, 0, pulse); // Blue
+        }
         break;
       case STATE_READING:
         // Pulsing Green
