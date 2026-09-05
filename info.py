@@ -69,8 +69,7 @@ def main():
     commands = {
         "Hardware Specs & Flash Info": (get_command("esptool"), ["flash_id"]),
         "Security Info (Software/Encryption)": (get_command("esptool"), ["get_security_info"]),
-        "Raw MAC Addresses": (get_command("esptool"), ["read_mac"]),
-        "Ultimate eFuse Configuration Dump": (get_command("espefuse"), ["summary", "--format", "json"])
+        "Raw MAC Addresses": (get_command("esptool"), ["read_mac"])
     }
 
     try:
@@ -79,51 +78,30 @@ def main():
             result = subprocess.run(cmd, capture_output=True, text=True)
             
             if result.returncode == 0:
-                if "json" in args:
-                    try:
-                        import json
-                        json_str = result.stdout[result.stdout.find("{"):]
-                        efuses = json.loads(json_str)
+                lines = result.stdout.split('\n')
+                data_dict = {}
+                last_key = None
+                for line in lines:
+                    if any(x in line for x in ["esptool.py", "Connecting", "stub", "Changed.", "Hard resetting", "esptool v", "espefuse v", "espefuse.py", "DEPRECATED", "Serial port", "Detecting chip type", "Connected to", "===", "---"]):
+                        continue
+                    line = line.strip()
+                    if not line:
+                        continue
                         
-                        categories = {}
-                        for k, v in efuses.items():
-                            cat = v.get("category", "general").title()
-                            val = str(v.get("value", "")) if v.get("value") is not None else str(v.get("raw_value", ""))
-                            if cat not in categories:
-                                categories[cat] = {}
-                            categories[cat][k] = val
-                            
-                        for cat, data_dict in categories.items():
-                            print_table(f"eFuse: {cat}", data_dict)
-                            
-                    except Exception as e:
-                        print(f"❌ Failed to parse eFuse JSON: {e}")
-                        
-                else:
-                    lines = result.stdout.split('\n')
-                    data_dict = {}
-                    last_key = None
-                    for line in lines:
-                        if any(x in line for x in ["esptool.py", "Connecting", "stub", "Changed.", "Hard resetting", "esptool v", "espefuse v", "espefuse.py", "DEPRECATED", "Serial port", "Detecting chip type", "Connected to", "===", "---"]):
-                            continue
-                        line = line.strip()
-                        if not line:
-                            continue
-                            
-                        if ":" in line:
-                            k, v = line.split(":", 1)
-                            k, v = k.strip(), v.strip()
-                            if k and v:
-                                data_dict[k] = v
-                                last_key = k
-                            elif k:
-                                data_dict[k] = ""
-                                last_key = k
-                        elif "-" in line and last_key:
-                            # Append nested lines like "BLOCK_KEY0 - USER" to the last key
-                            data_dict[last_key] += f" | {line}"
-                        
-                    print_table(title, data_dict)
+                    if ":" in line:
+                        k, v = line.split(":", 1)
+                        k, v = k.strip(), v.strip()
+                        if k and v:
+                            data_dict[k] = v
+                            last_key = k
+                        elif k:
+                            data_dict[k] = ""
+                            last_key = k
+                    elif "-" in line and last_key:
+                        # Append nested lines like "BLOCK_KEY0 - USER" to the last key
+                        data_dict[last_key] += f" | {line}"
+                    
+                print_table(title, data_dict)
             else:
                 print(f"\n❌ Failed to retrieve {title}. (Error code {result.returncode})")
                 if "No module named" in result.stderr:
