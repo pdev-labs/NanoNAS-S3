@@ -472,6 +472,47 @@ public:
         return written;
     }
 };
+
+bool deleteRecursive(String path) {
+  File dir = getStorage().open(path);
+  if (!dir) return false;
+  if (!dir.isDirectory()) {
+    dir.close();
+    return getStorage().remove(path);
+  }
+  
+  bool success = true;
+  dir.rewindDirectory();
+  File file = dir.openNextFile();
+  while (file) {
+    String filePath = String(file.path());
+    bool isDir = file.isDirectory();
+    file.close();
+    
+    if (isDir) {
+      if (!deleteRecursive(filePath)) success = false;
+    } else {
+      if (!getStorage().remove(filePath)) success = false;
+    }
+    
+    // Rewind directory to avoid index shifting bugs when deleting files
+    dir.rewindDirectory();
+    file = dir.openNextFile();
+    if (file && String(file.path()) == filePath) {
+      // Deletion failed and we are stuck on the same file, break to avoid infinite loop
+      file.close();
+      success = false;
+      break;
+    }
+  }
+  dir.close();
+  
+  if (success) {
+    success = getStorage().rmdir(path);
+  }
+  return success;
+}
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -759,13 +800,11 @@ void setup() {
     if(!checkAuth(request, true)) return;
     if (request->hasParam("file")) {
       String path = sanitizePath(request->getParam("file")->value());
-      File f = getStorage().open(path);
-      bool isDir = f && f.isDirectory();
-      if(f) f.close();
-      
-      bool success = isDir ? getStorage().rmdir(path) : getStorage().remove(path);
+      bool success = deleteRecursive(path);
       if (success) request->send(200, "text/plain", "Deleted");
       else request->send(500, "text/plain", "Failed");
+    } else {
+      request->send(400, "text/plain", "Missing file parameter");
     }
   });
   
