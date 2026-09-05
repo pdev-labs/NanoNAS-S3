@@ -8,6 +8,27 @@ def main():
     print(" ESP32-S3 Auto-Flasher Script")
     print("========================================")
     
+    # Set up tab completion for file paths
+    try:
+        import readline
+        import glob
+        
+        def path_completer(text, state):
+            text = os.path.expanduser(text)
+            matches = glob.glob(text + '*')
+            # Append trailing slash to directories for easier navigation
+            matches = [m + '/' if os.path.isdir(m) else m for m in matches]
+            if state < len(matches):
+                return matches[state]
+            else:
+                return None
+                
+        readline.set_completer_delims(' \t\n;')
+        readline.parse_and_bind("tab: complete")
+        readline.set_completer(path_completer)
+    except ImportError:
+        pass # readline is not available on Windows, gracefully ignore
+    
     # Ask for the file path
     file_path = input("Enter the full path of the file to flash (.ino or .bin): ").strip()
     
