@@ -22,7 +22,6 @@ It provides a beautiful, modern, glassmorphism web dashboard for managing, strea
   - 🟠 **Pulsing Orange:** Writing / Uploading Files
   - 🟣 **Strobing Purple:** Receiving OTA Update
   - 🔴 **Blinking Red:** System Error
-- **Secure Credentials Management:** WiFi secrets are kept safely in a `.gitignore`d file so you never accidentally push your password to GitHub!
 
 ## ⚙️ Hardware Requirements
 - **ESP32-S3** (Tested on 8MB Flash variant).
