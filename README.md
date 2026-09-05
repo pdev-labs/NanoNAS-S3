@@ -247,7 +247,14 @@ python flasher.py
 ```
 After successfully flashing, it will automatically launch a high-speed Serial Monitor so you can instantly view your boot logs and IP addresses.
 
-### 4. The Diagnostics Tool (`info.py`)
+### 4. The OTA Updater (`ota_update.py`)
+Wirelessly compile and push firmware updates to your NanoNAS over the network!
+```bash
+python ota_update.py
+```
+This script will automatically trigger `build_bin.py`, locate the compiled binary, and push it directly to the NAS via HTTP POST using basic authentication.
+
+### 5. The Diagnostics Tool (`info.py`)
 The ultimate hardware and software deep-dive interrogator!
 ```bash
 python info.py

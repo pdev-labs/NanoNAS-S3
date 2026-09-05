@@ -20,13 +20,13 @@ def prompt_yes_no(prompt, default="y"):
         print("Please answer 'yes' or 'no'.")
 
 def install_esptool():
-    print("\n[INFO] Attempting to install esptool via pip...")
+    print("\n[INFO] Attempting to install python dependencies (esptool, requests) via pip...")
     try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "esptool"])
-        print("[SUCCESS] esptool installed successfully!")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "esptool", "requests"])
+        print("[SUCCESS] Python dependencies installed successfully!")
     except subprocess.CalledProcessError:
-        print("[ERROR] Failed to install esptool automatically.")
-        print("Please run manually: python -m pip install esptool")
+        print("[ERROR] Failed to install dependencies automatically.")
+        print("Please run manually: python -m pip install esptool requests")
 
 def install_arduino_cli():
     print("\n[INFO] Arduino CLI installation requires platform-specific steps.")
