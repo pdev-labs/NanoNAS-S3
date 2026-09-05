@@ -130,6 +130,32 @@ def main():
                     print("Make sure esptool is installed! (pip install esptool or sudo pacman -S esptool)\n")
                 else:
                     print(result.stderr.strip() + "\n")
+                    
+        # Extract Firmware App Description
+        print(f"--- Firmware Software Details ---")
+        import tempfile, os, struct
+        temp_bin = os.path.join(tempfile.gettempdir(), "esp_firmware_header.bin")
+        cmd = get_command("esptool") + ["--port", port, "read_flash", "0x10000", "0x1000", temp_bin]
+        result = subprocess.run(cmd, capture_output=True)
+        if result.returncode == 0 and os.path.exists(temp_bin):
+            with open(temp_bin, "rb") as f:
+                data = f.read()
+            idx = data.find(b'\x32\x54\xcd\xab')
+            if idx != -1 and len(data) >= idx + 256:
+                unpacked = struct.unpack('<II8s32s32s16s16s32s32s80s', data[idx:idx+256])
+                firmware_info = {
+                    "Project Name": unpacked[4].decode(errors='ignore').strip('\x00'),
+                    "App Version": unpacked[3].decode(errors='ignore').strip('\x00'),
+                    "Compile Time": unpacked[5].decode(errors='ignore').strip('\x00'),
+                    "Compile Date": unpacked[6].decode(errors='ignore').strip('\x00'),
+                    "ESP-IDF Version": unpacked[7].decode(errors='ignore').strip('\x00'),
+                    "App ELF SHA256": unpacked[8].hex()
+                }
+                print_table("Running Firmware Image Info", firmware_info)
+            else:
+                print("\n❌ Could not locate ESP-IDF App Description in flash memory.")
+        else:
+            print("\n❌ Failed to read flash memory for software details.")
                 
         print("\n✅ Successfully retrieved all available ESP32 info!")
             
