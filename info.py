@@ -34,15 +34,16 @@ def main():
 
     # Commands to extract maximum information
     commands = {
-        "Hardware Specs & Flash Info": ["flash_id"],
-        "Security Info (Software/Encryption)": ["get_security_info"],
-        "Raw MAC Addresses": ["read_mac"]
+        "Hardware Specs & Flash Info": (["esptool"], ["flash_id"]),
+        "Security Info (Software/Encryption)": (["esptool"], ["get_security_info"]),
+        "Raw MAC Addresses": (["esptool"], ["read_mac"]),
+        "Ultimate eFuse Configuration Dump": (["espefuse"], ["summary"])
     }
 
     try:
-        for title, args in commands.items():
+        for title, (module, args) in commands.items():
             print(f"--- {title} ---")
-            cmd = [sys.executable, "-m", "esptool", "--port", port] + args
+            cmd = [sys.executable, "-m", module[0], "--port", port] + args
             result = subprocess.run(cmd, capture_output=True, text=True)
             
             if result.returncode == 0:
@@ -50,7 +51,7 @@ def main():
                 clean_output = []
                 for line in lines:
                     # Filter out boring connection logs
-                    if any(x in line for x in ["esptool.py", "Connecting", "stub", "Changed.", "Hard resetting", "esptool v"]):
+                    if any(x in line for x in ["esptool.py", "Connecting", "stub", "Changed.", "Hard resetting", "esptool v", "espefuse v", "espefuse.py", "DEPRECATED"]):
                         continue
                     if line.strip():
                         clean_output.append(line)
