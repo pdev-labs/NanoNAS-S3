@@ -1136,21 +1136,37 @@ let currentDir = "/";
 
         async function handleFiles(files) {
             if (!files || files.length === 0) return;
+            
+            let response = await fetch('/list?dir=' + encodeURIComponent(currentDir));
+            let existingFiles = await response.json();
+            let existingNames = existingFiles.map(f => f.name);
+            
             const pContainer = document.getElementById('progressContainer');
             const pBar = document.getElementById('progressBar');
             const pText = document.getElementById('progressText');
-            
+
             pContainer.style.display = 'block';
 
             for (let idx = 0; idx < files.length; idx++) {
                 const file = files[idx];
+                let finalName = file.name;
+
+                if (existingNames.includes(finalName)) {
+                    let choice = await promptCollision(finalName);
+                    if (choice === 'skip') {
+                        continue;
+                    } else if (choice !== 'replace') {
+                        finalName = choice;
+                    }
+                }
+
                 pBar.style.width = '0%';
-                pText.innerText = `[${idx+1}/${files.length}] Uploading ${file.name} (0%)`;
-                
+                pText.innerText = `[${idx+1}/${files.length}] Uploading ${finalName} (0%)`;
+
                 const chunkSize = 1024 * 256; 
                 const totalChunks = Math.ceil(file.size / chunkSize) || 1;
                 let uploadedBytes = 0;
-                let fullPath = (currentDir === "/" ? "" : currentDir) + "/" + file.name;
+                let fullPath = (currentDir === "/" ? "" : currentDir) + "/" + finalName;
 
                 for (let i = 0; i < totalChunks; i++) {
                     const start = i * chunkSize;
