@@ -30,38 +30,41 @@ def main():
     print(" ESP32 Hardware & Software Info Utility")
     print(f" Target Port: {port}")
     print("========================================\n")
-    print("[INFO] Querying ESP32 chip using esptool...\n")
+    print("[INFO] Querying ESP32 chip for all available details...\n")
 
-    # We use sys.executable to make it completely cross platform (Windows, Mac, Linux, Termux)
-    cmd = [sys.executable, "-m", "esptool", "--port", port, "flash_id"]
-    
+    # Commands to extract maximum information
+    commands = {
+        "Hardware Specs & Flash Info": ["flash_id"],
+        "Security Info (Software/Encryption)": ["get_security_info"],
+        "Raw MAC Addresses": ["read_mac"]
+    }
+
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        
-        if result.returncode == 0:
-            # We filter out the unnecessary stub flasher logs to make it look clean
-            output = result.stdout
-            lines = output.split('\n')
+        for title, args in commands.items():
+            print(f"--- {title} ---")
+            cmd = [sys.executable, "-m", "esptool", "--port", port] + args
+            result = subprocess.run(cmd, capture_output=True, text=True)
             
-            clean_output = []
-            for line in lines:
-                # Filter out boring esptool logs
-                if "esptool.py" in line or "Connecting" in line or "stub" in line or "Changed." in line:
-                    continue
-                if line.strip():
-                    clean_output.append(line)
-            
-            print("\n".join(clean_output))
-            print("\n✅ Successfully retrieved ESP32 info!")
-            
-        else:
-            print(result.stdout)
-            print(result.stderr)
-            print("\n❌ Failed to retrieve info. Is the ESP32 plugged in and esptool installed? (pip install esptool)")
+            if result.returncode == 0:
+                lines = result.stdout.split('\n')
+                clean_output = []
+                for line in lines:
+                    # Filter out boring connection logs
+                    if any(x in line for x in ["esptool.py", "Connecting", "stub", "Changed.", "Hard resetting", "esptool v"]):
+                        continue
+                    if line.strip():
+                        clean_output.append(line)
+                
+                print("\n".join(clean_output))
+                print()
+            else:
+                print(f"❌ Failed to retrieve {title}. (Error code {result.returncode})\n")
+                
+        print("✅ Successfully retrieved all available ESP32 info!")
             
     except Exception as e:
         print(f"\n❌ Error running esptool: {e}")
-        print("Please ensure you have python and esptool installed.")
+        print("Please ensure you have python and esptool installed (pip install esptool).")
 
 if __name__ == "__main__":
     main()
