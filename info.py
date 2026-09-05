@@ -39,6 +39,23 @@ def get_command(module_name):
         
     return [module_name] # Let it fail natively
 
+def print_table(title, data_dict):
+    if not data_dict: return
+    max_k = max([len(str(k)) for k in data_dict.keys()] + [10])
+    max_v = max([len(str(v)) for v in data_dict.values()] + [10])
+    max_v = min(max_v, 80)
+    
+    print("\n" + f" {title} ".center(max_k + max_v + 7, "="))
+    print(f"┌─{'─'*max_k}─┬─{'─'*max_v}─┐")
+    print(f"│ {'Property'.ljust(max_k)} │ {'Value'.ljust(max_v)} │")
+    print(f"├─{'─'*max_k}─┼─{'─'*max_v}─┤")
+    for k, v in data_dict.items():
+        v_str = str(v).replace('\n', ' ')
+        if len(v_str) > max_v:
+            v_str = v_str[:max_v - 3] + "..."
+        print(f"│ {str(k).ljust(max_k)} │ {v_str.ljust(max_v)} │")
+    print(f"└─{'─'*max_k}─┴─{'─'*max_v}─┘")
+
 def main():
     port = sys.argv[1] if len(sys.argv) > 1 else get_esp32_port()
 
@@ -53,35 +70,68 @@ def main():
         "Hardware Specs & Flash Info": (get_command("esptool"), ["flash_id"]),
         "Security Info (Software/Encryption)": (get_command("esptool"), ["get_security_info"]),
         "Raw MAC Addresses": (get_command("esptool"), ["read_mac"]),
-        "Ultimate eFuse Configuration Dump": (get_command("espefuse"), ["summary"])
+        "Ultimate eFuse Configuration Dump": (get_command("espefuse"), ["summary", "--format", "json"])
     }
 
     try:
         for title, (base_cmd, args) in commands.items():
-            print(f"--- {title} ---")
             cmd = base_cmd + ["--port", port] + args
             result = subprocess.run(cmd, capture_output=True, text=True)
             
             if result.returncode == 0:
-                lines = result.stdout.split('\n')
-                clean_output = []
-                for line in lines:
-                    # Filter out boring connection logs
-                    if any(x in line for x in ["esptool.py", "Connecting", "stub", "Changed.", "Hard resetting", "esptool v", "espefuse v", "espefuse.py", "DEPRECATED"]):
-                        continue
-                    if line.strip():
-                        clean_output.append(line)
-                
-                print("\n".join(clean_output))
-                print()
+                if "json" in args:
+                    try:
+                        import json
+                        json_str = result.stdout[result.stdout.find("{"):]
+                        efuses = json.loads(json_str)
+                        
+                        categories = {}
+                        for k, v in efuses.items():
+                            cat = v.get("category", "general").title()
+                            val = str(v.get("value", "")) if v.get("value") is not None else str(v.get("raw_value", ""))
+                            if cat not in categories:
+                                categories[cat] = {}
+                            categories[cat][k] = val
+                            
+                        for cat, data_dict in categories.items():
+                            print_table(f"eFuse: {cat}", data_dict)
+                            
+                    except Exception as e:
+                        print(f"❌ Failed to parse eFuse JSON: {e}")
+                        
+                else:
+                    lines = result.stdout.split('\n')
+                    data_dict = {}
+                    last_key = None
+                    for line in lines:
+                        if any(x in line for x in ["esptool.py", "Connecting", "stub", "Changed.", "Hard resetting", "esptool v", "espefuse v", "espefuse.py", "DEPRECATED", "Serial port", "Detecting chip type", "Connected to", "===", "---"]):
+                            continue
+                        line = line.strip()
+                        if not line:
+                            continue
+                            
+                        if ":" in line:
+                            k, v = line.split(":", 1)
+                            k, v = k.strip(), v.strip()
+                            if k and v:
+                                data_dict[k] = v
+                                last_key = k
+                            elif k:
+                                data_dict[k] = ""
+                                last_key = k
+                        elif "-" in line and last_key:
+                            # Append nested lines like "BLOCK_KEY0 - USER" to the last key
+                            data_dict[last_key] += f" | {line}"
+                        
+                    print_table(title, data_dict)
             else:
-                print(f"❌ Failed to retrieve {title}. (Error code {result.returncode})")
+                print(f"\n❌ Failed to retrieve {title}. (Error code {result.returncode})")
                 if "No module named" in result.stderr:
                     print("Make sure esptool is installed! (pip install esptool or sudo pacman -S esptool)\n")
                 else:
                     print(result.stderr.strip() + "\n")
                 
-        print("✅ Successfully retrieved all available ESP32 info!")
+        print("\n✅ Successfully retrieved all available ESP32 info!")
             
     except Exception as e:
         print(f"\n❌ Error running command: {e}")
