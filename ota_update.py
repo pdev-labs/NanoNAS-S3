@@ -4,8 +4,46 @@ import subprocess
 import requests
 import json
 import time
+import socket
+import concurrent.futures
 
 CACHE_FILE = ".build_cache.json"
+
+def check_ip(ip):
+    try:
+        r = requests.get(f"http://{ip}/", timeout=1.0)
+        if r.status_code == 401 and 'NanoNAS' in r.headers.get('WWW-Authenticate', ''):
+            return ip
+    except Exception:
+        pass
+    return None
+
+def auto_detect_nanonas():
+    print("\n[INFO] Scanning local network (Hotspot/WiFi) for NanoNAS devices...")
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('10.255.255.255', 1))
+        local_ip = s.getsockname()[0]
+    except Exception:
+        local_ip = '192.168.43.1'
+    finally:
+        s.close()
+    
+    subnet = ".".join(local_ip.split('.')[:-1])
+    ips_to_check = [f"{subnet}.{i}" for i in range(1, 255)]
+    if subnet != "192.168.4":
+        ips_to_check.append("192.168.4.1")
+        
+    found_ip = None
+    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
+        futures = {executor.submit(check_ip, ip): ip for ip in ips_to_check}
+        for future in concurrent.futures.as_completed(futures):
+            res = future.result()
+            if res:
+                found_ip = res
+                break # We found it, other threads will quickly timeout
+                
+    return found_ip
 
 def main():
     print("========================================")
@@ -61,6 +99,13 @@ def main():
     cached_ip = cache.get("ota_ip", "nanonas.local")
     cached_user = cache.get("ota_user", "admin")
     cached_pass = cache.get("ota_pass", "admin")
+    
+    scanned_ip = auto_detect_nanonas()
+    if scanned_ip:
+        print(f"[SUCCESS] Found NanoNAS automatically at {scanned_ip}")
+        cached_ip = scanned_ip
+    else:
+        print("[WARNING] Could not automatically find NanoNAS on the local network.")
 
     print("\n--- OTA Configuration ---")
     ip_addr = input(f"Enter the NanoNAS IP or mDNS (leave blank for '{cached_ip}'): ").strip()
