@@ -48,16 +48,16 @@ void rgbTask(void *pvParameters) {
     
     switch(sysState) {
       case STATE_IDLE:
-        // Slow glowing blue
-        color = pixels.Color(0, 0, pulse / 2 + 50); // Minimum brightness 50, max 177
+        // Breathing Blue
+        color = pixels.Color(0, 0, pulse);
         break;
       case STATE_READING:
-        // Pulsing Cyan
-        color = pixels.Color(0, pulse, pulse);
+        // Pulsing Green
+        color = pixels.Color(0, pulse, 0);
         break;
       case STATE_WRITING:
-        // Pulsing Purple
-        color = pixels.Color(pulse, 0, pulse);
+        // Pulsing Orange
+        color = pixels.Color(pulse, pulse / 2, 0);
         break;
       case STATE_ERROR:
         // Blinking Red
@@ -65,8 +65,8 @@ void rgbTask(void *pvParameters) {
         if (millis() - lastActivityMs > 3000) sysState = STATE_IDLE;
         break;
       case STATE_UPDATING:
-        // Strobing Green
-        color = (millis() % 200 < 100) ? pixels.Color(0, 255, 0) : pixels.Color(0, 0, 0);
+        // Strobing Purple
+        color = (millis() % 200 < 100) ? pixels.Color(255, 0, 255) : pixels.Color(0, 0, 0);
         break;
     }
 
