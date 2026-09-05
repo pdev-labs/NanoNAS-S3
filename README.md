@@ -147,54 +147,62 @@ If you want to install everything manually piece by piece, click on your Operati
 </details>
 
 <details>
-<summary><b>📱 Android (Termux)</b></summary>
+<summary><b>📱 Android (Non-Rooted)</b></summary>
+
+Standard Android blocks USB access for terminals, but you have three clever options:
+
+1. **Option A: The Wireless OTA Method (Recommended / No USB Needed)**
+   - Download the app `Termux` from F-Droid, open it, and install the tools:
+     ```bash
+     pkg update && pkg upgrade
+     pkg install python clang make git
+     ```
+   - Download the code and run the setup wizard to configure your passwords:
+     ```bash
+     git clone https://github.com/pdev-labs/NanoNAS-S3.git
+     cd NanoNAS-S3
+     python setup.py
+     ```
+   - Run `python build_bin.py` to magically compile your firmware into a `.bin` file inside Termux.
+   - Open Chrome on your phone, log in to your NanoNAS dashboard, and upload the `.bin` file using the **Firmware Update (OTA)** button!
+
+2. **Option B: Web Tools (Easiest for pre-compiled bins)**
+   If you just want to flash a pre-compiled `.bin`, bypass Termux completely:
+   - Connect your ESP chip via USB OTG.
+   - Open Chrome on Android and navigate to [ESP Web Tools](https://espressif.github.io/esptool-js/).
+   - Tap **Connect**, grant Chrome USB permissions, and flash your firmware directly using WebUSB!
+   - *(Use [Adafruit Web Serial ESPTool](https://adafruit.github.io/Adafruit_WebSerial_ESPTool/) if your phone manufacturer blocks raw serial drivers).*
+
+3. **Option C: The TCP Bridge Method (Advanced USB Flashing)**
+   - Download a "TCP-to-UART bridge" app from the Play Store (e.g., "TCPUART").
+   - Plug in your ESP32 via USB OTG and grant the app USB permissions.
+   - Start the TCP server in the app (e.g., on port 8080).
+   - In Termux, flash the board through the bridge using RFC2217:
+     ```bash
+     esptool.py -p socket://127.0.0.1:8080 write_flash 0x0 build/your_sketch.bin
+     ```
+</details>
+
+<details>
+<summary><b>📱 Android (Rooted)</b></summary>
+
+If your phone is rooted, you can grant Termux direct access to the USB port!
 
 1. **Download Termux:** (Get it from F-Droid, NOT the Google Play Store).
-2. **Install tools:**
+2. **Install tools and root utilities:**
    ```bash
    pkg update && pkg upgrade
-   pkg install python clang make git
+   pkg install python clang make git tsu
+   pip install esptool pyserial
    ```
 3. **Download the code:**
    ```bash
    git clone https://github.com/pdev-labs/NanoNAS-S3.git
    cd NanoNAS-S3
    ```
-
-4. **Flashing on Android:**
-   Standard Android blocks USB access for terminals, but you have several clever options depending on what you want to achieve:
-
-   **Option A: The Wireless OTA Method (No Root Needed - Easiest)**
-   - Run `python setup.py` to configure your passwords.
-   - Run `python build_bin.py` to magically compile your firmware into a `.bin` file inside Termux.
-   - Open Chrome on your phone, log in to your NanoNAS dashboard, and upload the `.bin` file using the **Firmware Update (OTA)** button! No USB cables required!
-
-   **Option B: Web Tools (No Termux Required - Easiest for pre-compiled bins)**
-   If you just want to flash a pre-compiled `.bin` without automation scripts, you can completely bypass Termux by using Chrome on Android:
-   - Connect your ESP chip via USB OTG.
-   - Open Chrome on Android and navigate to [ESP Web Tools](https://espressif.github.io/esptool-js/).
-   - Tap **Connect**, grant Chrome permission to access the USB device, and flash your firmware directly from the browser using WebUSB!
-   - *Note: If Chrome fails to connect due to your phone manufacturer blocking raw serial drivers, use the [Adafruit Web Serial ESPTool](https://adafruit.github.io/Adafruit_WebSerial_ESPTool/) instead, as it includes built-in poly-fills to bypass these blocks.*
-
-   **Option C: The TCP Bridge Method (No Root Needed - Clever)**
-   - Download a "TCP-to-UART bridge" app from the Play Store (e.g., "TCPUART").
-   - Plug in your ESP32 via USB OTG. The app will ask for USB permissions. Say yes!
-   - Start the TCP server in the app (e.g., on port 8080).
-   - In Termux, type this to flash the board through the bridge using RFC2217:
-     ```bash
-     esptool.py -p socket://127.0.0.1:8080 write_flash 0x0 build/your_sketch.bin
-     ```
-
-   **Option D: Specialized Terminal Apps (No Root / No TCP)**
-   If you just need a command-line interface to interact with or monitor the serial output (and don't want to deal with network bridges), use apps like **Serial USB Terminal** (by Kai Morich). It handles the USB connection natively in user-space without root.
-
-   **Option E: Direct USB Flashing (Root Required)**
-   - If your phone is rooted:
-     ```bash
-     pkg install tsu
-     pip install esptool pyserial
-     ```
-   - *Note: Run `tsu` first to become the root user, then you can use `flasher.py` normally!*
+4. **Flashing the board:**
+   - Run `tsu` to become the root user.
+   - Run `python flasher.py` to compile and flash the board directly over USB!
 </details>
 
 #### Advanced Step: Install C++ Libraries Manually
