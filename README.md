@@ -38,8 +38,12 @@ Deploying NanoNAS is incredibly easy. You can choose the **Automated Setup** (re
 ### 🌟 Automated Setup (Recommended)
 Our cross-platform Python script (`setup.py`) acts as a smart installation wizard. It will interactively ask you for your WiFi credentials, generate your security files, and automatically download and install `arduino-cli`, `esptool`, and all necessary C++ libraries!
 
-1. Open your terminal in the cloned NanoNAS directory.
-2. Run the interactive setup wizard:
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/pdev-labs/NanoNAS-S3.git
+   cd NanoNAS-S3
+   ```
+2. **Run the interactive setup wizard:**
    ```bash
    python setup.py
    ```
@@ -48,7 +52,13 @@ Our cross-platform Python script (`setup.py`) acts as a smart installation wizar
 ### 🔧 Manual Setup (Step-by-Step)
 If you prefer to configure the NAS manually, follow the platform-specific instructions below.
 
-#### Step 1: Install `arduino-cli` and `esptool`
+#### Step 1: Clone the Repository
+```bash
+git clone https://github.com/pdev-labs/NanoNAS-S3.git
+cd NanoNAS-S3
+```
+
+#### Step 2: Install `arduino-cli` and `esptool`
 <details>
 <summary><b>🐧 Linux (Ubuntu/Debian/Arch)</b></summary>
 
@@ -103,13 +113,24 @@ If you prefer to configure the NAS manually, follow the platform-specific instru
 1. **Install dependencies:**
    ```bash
    pkg update && pkg upgrade
-   pkg install python clang make tsu
+   pkg install python clang make git
+   ```
+2. **For Non-Rooted Devices (OTA Updates):**
+   Standard `esptool.py` cannot access USB devices on non-rooted Androids due to OS security policies. However, you can use Termux purely as a build environment!
+   - Run `python setup.py` to install libraries and configure your credentials.
+   - Run `python build_bin.py` to compile your `.bin` file.
+   - Open your Android browser, log in to your NanoNAS dashboard, and upload the generated `.bin` file via the **Firmware Update (OTA)** panel! No USB cables required!
+
+3. **For Rooted Devices (Direct USB Flashing):**
+   If you are rooted and want to flash via a USB OTG cable directly from Termux:
+   ```bash
+   pkg install tsu
    pip install esptool pyserial
    ```
-2. **Note:** You must have root (`tsu`) and Termux USB API permissions enabled to flash serial devices directly from an Android phone.
+   *Note: You must have Termux USB API permissions enabled, and you will need to run the flash scripts as root (`tsu`) to allow `esptool` access to `/dev/bus/usb`.*
 </details>
 
-#### Step 2: Install Required C++ Libraries
+#### Step 3: Install Required C++ Libraries
 Once `arduino-cli` is installed on your system, install the ESP32 core and required libraries:
 ```bash
 arduino-cli core update-index
@@ -118,7 +139,7 @@ arduino-cli lib install "ArduinoJson" "Adafruit NeoPixel" "EspUsbHost"
 ```
 *(Note: You will also need to manually clone or install `ESPAsyncWebServer` and `AsyncTCP` into your Arduino libraries folder).*
 
-#### Step 3: Configure Credentials securely
+#### Step 4: Configure Credentials securely
 1. Rename the `secrets.h.example` file to `secrets.h`.
 2. Open `secrets.h` and input your actual WiFi SSID and Password, along with your desired Admin credentials:
    ```c
