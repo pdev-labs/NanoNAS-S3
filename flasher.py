@@ -98,11 +98,14 @@ def main():
             sketch_dir = os.path.join(tmp_dir, sketch_name)
             os.makedirs(sketch_dir)
             
-            # Copy ALL files from the source directory
+            # Copy files from the source directory, but ignore other .ino files
             copied = []
             for f in os.listdir(source_dir):
                 src = os.path.join(source_dir, f)
                 if os.path.isfile(src):
+                    # Skip other .ino files to prevent compilation redefinition errors
+                    if f.endswith(".ino") and f != os.path.basename(file_path):
+                        continue
                     shutil.copy2(src, os.path.join(sketch_dir, f))
                     copied.append(f)
             print(f"[INFO] Staged {len(copied)} file(s) to: {sketch_dir}")
