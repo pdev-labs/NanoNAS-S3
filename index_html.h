@@ -504,6 +504,7 @@ const char index_html[] PROGMEM = R"rawliteral(
         <header class="app-bar">
             <span class="material-symbols-outlined" style="color:var(--md-sys-color-primary);">dns</span>
             <div class="app-bar-title">NanoNAS S3</div>
+            <button class="icon-btn" onclick="openSysInfo()" title="System Info"><span class="material-symbols-outlined">analytics</span></button>
             <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme"><span class="material-symbols-outlined">dark_mode</span></button>
             <button class="icon-btn" onclick="openSettings()" title="Settings"><span class="material-symbols-outlined">settings</span></button>
             
@@ -601,6 +602,19 @@ const char index_html[] PROGMEM = R"rawliteral(
             <div style="display:flex; justify-content:space-between; margin-top:16px;">
                 <button class="btn btn-text" onclick="prevMedia()"><span class="material-symbols-outlined">skip_previous</span> PREV</button>
                 <button class="btn btn-text" onclick="nextMedia()">NEXT <span class="material-symbols-outlined">skip_next</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Info Modal -->
+    <div id="sysInfoModal" class="modal" onclick="if(event.target==this) { this.style.display='none'; clearInterval(sysInfoInterval); }">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <div class="modal-title">System Health & Analytics</div>
+                <button class="icon-btn" onclick="document.getElementById('sysInfoModal').style.display='none'; clearInterval(sysInfoInterval);"><span class="material-symbols-outlined">close</span></button>
+            </div>
+            <div class="modal-body" style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" id="sysInfoBody">
+                Loading...
             </div>
         </div>
     </div>
@@ -1063,6 +1077,51 @@ let currentDir = "/";
         }
 
         // --- Settings / Users ---
+        let sysInfoInterval = null;
+        async function fetchSysInfo() {
+            try {
+                let res = await fetch('/api/sysinfo');
+                if(!res.ok) return;
+                let data = await res.json();
+                
+                let formatBytes = (bytes) => {
+                    if (bytes === 0) return '0 B';
+                    const k = 1024;
+                    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+                };
+
+                let html = `
+                    <div class="card" style="margin-bottom:0; padding:16px;">
+                        <div class="storage-title">Heap RAM</div>
+                        <div class="storage-val" style="font-size:24px;">${formatBytes(data.heap_free)} <span style="font-size:14px;color:var(--md-sys-color-on-surface-variant);">/ ${formatBytes(data.heap_total)}</span></div>
+                        <div class="storage-bar-bg" style="height:4px;"><div class="storage-bar-fill" style="width:${100 - (data.heap_free/data.heap_total*100)}%;"></div></div>
+                    </div>
+                    <div class="card" style="margin-bottom:0; padding:16px;">
+                        <div class="storage-title">PSRAM</div>
+                        <div class="storage-val" style="font-size:24px;">${formatBytes(data.psram_free)} <span style="font-size:14px;color:var(--md-sys-color-on-surface-variant);">/ ${formatBytes(data.psram_total)}</span></div>
+                        <div class="storage-bar-bg" style="height:4px;"><div class="storage-bar-fill" style="width:${data.psram_total ? 100 - (data.psram_free/data.psram_total*100) : 0}%;"></div></div>
+                    </div>
+                    <div class="card" style="margin-bottom:0; padding:16px;">
+                        <div class="storage-title">WiFi Signal (RSSI)</div>
+                        <div class="storage-val" style="font-size:24px;">${data.wifi_rssi} dBm</div>
+                    </div>
+                    <div class="card" style="margin-bottom:0; padding:16px;">
+                        <div class="storage-title">System Uptime</div>
+                        <div class="storage-val" style="font-size:24px;">${Math.floor(data.uptime / 60)}m ${data.uptime % 60}s</div>
+                    </div>
+                `;
+                document.getElementById('sysInfoBody').innerHTML = html;
+            } catch(e) {}
+        }
+
+        function openSysInfo() {
+            document.getElementById('sysInfoModal').style.display = 'flex';
+            fetchSysInfo();
+            sysInfoInterval = setInterval(fetchSysInfo, 2000);
+        }
+
         function openSettings() {
             document.getElementById('settingsModal').style.display = 'flex';
             loadUsers();

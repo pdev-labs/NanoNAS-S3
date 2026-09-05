@@ -512,6 +512,22 @@ void setup() {
 
 
   // API: Get Users
+  // System Info API
+  server.on("/api/sysinfo", HTTP_GET, [](AsyncWebServerRequest *request){
+    if(!checkAuth(request, false)) return;
+    DynamicJsonDocument doc(512);
+    doc["heap_total"] = ESP.getHeapSize();
+    doc["heap_free"] = ESP.getFreeHeap();
+    doc["psram_total"] = ESP.getPsramSize();
+    doc["psram_free"] = ESP.getFreePsram();
+    doc["wifi_rssi"] = WiFi.RSSI();
+    doc["uptime"] = millis() / 1000;
+    
+    String response;
+    serializeJson(doc, response);
+    request->send(200, "application/json", response);
+  });
+
   server.on("/api/users", HTTP_GET, [](AsyncWebServerRequest *request){
     if(!checkAuth(request, true)) return;
     String json;
