@@ -12,11 +12,18 @@ def get_esp32_port():
             if "esp32" in desc or "ch340" in desc or "cp210" in desc or "usb jtag" in desc:
                 return p.device
         for p in ports:
-            if "ttyUSB" in p.device or "ttyACM" in p.device:
+            if "ttyusb" in p.device.lower() or "ttyacm" in p.device.lower() or "com" in p.device.lower():
                 return p.device
     except ImportError:
         pass
-    return "/dev/ttyACM0"
+        
+    import sys
+    if sys.platform.startswith('win'):
+        return "COM3"
+    elif sys.platform.startswith('darwin'):
+        return "/dev/cu.usbserial-0001"
+    else:
+        return "/dev/ttyACM0"
 
 def main():
     print("========================================")

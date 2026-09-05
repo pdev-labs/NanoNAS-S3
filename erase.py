@@ -13,11 +13,17 @@ def get_esp32_port():
             if "esp32" in desc or "ch340" in desc or "cp210" in desc or "usb jtag" in desc:
                 return p.device
         for p in ports:
-            if "ttyUSB" in p.device or "ttyACM" in p.device:
+            if "ttyusb" in p.device.lower() or "ttyacm" in p.device.lower() or "com" in p.device.lower():
                 return p.device
     except ImportError:
         pass
-    return "/dev/ttyACM0"
+        
+    if sys.platform.startswith('win'):
+        return "COM3"
+    elif sys.platform.startswith('darwin'):
+        return "/dev/cu.usbserial-0001"
+    else:
+        return "/dev/ttyACM0"
 
 # Auto-detect port if not provided
 port = sys.argv[1] if len(sys.argv) > 1 else get_esp32_port()
@@ -35,12 +41,12 @@ if choice == "2":
 else:
     print("\nErasing Entire Flash Memory...")
 
-exit_code = os.system(f"esptool --port {port} erase-flash")
-if exit_code != 0:
-    exit_code = os.system(f"esptool.py --port {port} erase-flash")
+# Use sys.executable to ensure we use the python environment's esptool (works on Windows/Mac/Linux)
+erase_cmd = [sys.executable, "-m", "esptool", "--port", port, "erase_flash"]
+result = subprocess.run(erase_cmd)
 
-if exit_code != 0:
-    print("\n❌ Failed to erase flash. Is it in bootloader mode?")
+if result.returncode != 0:
+    print("\n❌ Failed to erase flash. Is it in bootloader mode? Do you have esptool installed? (pip install esptool)")
     sys.exit(1)
 
 if choice != "2":
