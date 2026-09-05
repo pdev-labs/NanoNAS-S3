@@ -41,11 +41,29 @@ def main():
         print(f"[ERROR] Path '{target_path}' does not exist.")
         sys.exit(1)
         
-    fqbn_input = input("Enter the FQBN (leave blank for default 'esp32:esp32:esp32s3'): ").strip()
-    if not fqbn_input:
-        fqbn = "esp32:esp32:esp32s3"
-    else:
-        fqbn = fqbn_input
+    fqbn = None
+    print("\n[INFO] Scanning for connected Arduino boards...")
+    try:
+        import json
+        result = subprocess.run(["arduino-cli", "board", "list", "--format", "json"], capture_output=True, text=True)
+        if result.returncode == 0:
+            data = json.loads(result.stdout)
+            for port in data.get("detected_ports", []):
+                if "matching_boards" in port and len(port["matching_boards"]) > 0:
+                    fqbn = port["matching_boards"][0]["fqbn"]
+                    board_name = port["matching_boards"][0]["name"]
+                    print(f"[SUCCESS] Auto-detected board: {board_name} ({fqbn})")
+                    break
+    except Exception as e:
+        pass
+
+    if not fqbn:
+        print("[WARNING] Could not automatically detect a connected board (or board does not strictly identify its FQBN).")
+        fqbn_input = input("Enter the FQBN manually (leave blank for default 'esp32:esp32:esp32s3'): ").strip()
+        if not fqbn_input:
+            fqbn = "esp32:esp32:esp32s3"
+        else:
+            fqbn = fqbn_input
 
     # Determine if it's a file or dir
     tmp_dir = None
