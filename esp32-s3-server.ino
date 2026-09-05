@@ -22,7 +22,7 @@ enum SystemState {
 volatile SystemState sysState = STATE_IDLE;
 volatile uint32_t lastActivityMs = 0;
 
-// #define ENABLE_RGB_FADE
+#define ENABLE_RGB_FADE
 
 #ifdef ENABLE_RGB_FADE
 #include <Adafruit_NeoPixel.h>
@@ -48,10 +48,8 @@ void rgbTask(void *pvParameters) {
     
     switch(sysState) {
       case STATE_IDLE:
-        // Slow glowing rainbow
-        color = pixels.gamma32(pixels.ColorHSV(hue, 255, 255));
-        hue += 10;
-        if(hue >= 65536) hue = 0;
+        // Slow glowing blue
+        color = pixels.Color(0, 0, pulse / 2 + 50); // Minimum brightness 50, max 177
         break;
       case STATE_READING:
         // Pulsing Cyan
@@ -72,9 +70,9 @@ void rgbTask(void *pvParameters) {
         break;
     }
 
-    if(sysState == STATE_READING || sysState == STATE_WRITING) {
-        if(pulseUp) { pulse += 15; if(pulse >= 255) { pulse = 255; pulseUp = false; } }
-        else { pulse -= 15; if(pulse <= 0) { pulse = 0; pulseUp = true; } }
+    if(sysState == STATE_IDLE || sysState == STATE_READING || sysState == STATE_WRITING) {
+        if(pulseUp) { pulse += 5; if(pulse >= 255) { pulse = 255; pulseUp = false; } }
+        else { pulse -= 5; if(pulse <= 0) { pulse = 0; pulseUp = true; } }
     } else {
         pulse = 0;
     }
