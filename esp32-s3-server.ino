@@ -793,6 +793,11 @@ void setup() {
   );
 
   // OTA Firmware Update
+  server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if(!checkAuth(request, true)) return;
+    request->send(200, "text/plain", "Ready");
+  });
+
   server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request) {
     if(!checkAuth(request, true)) return;
     bool shouldReboot = !Update.hasError();
@@ -812,7 +817,7 @@ void setup() {
     
     if(!index){
       Serial.printf("Update Start: %s\n", filename.c_str());
-      if(!Update.begin(UPDATE_SIZE_UNKNOWN)){
+      if(!Update.begin(UPDATE_SIZE_UNKNOWN, U_FLASH)){
         Update.printError(Serial);
       }
     }

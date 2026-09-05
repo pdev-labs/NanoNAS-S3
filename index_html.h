@@ -1225,7 +1225,7 @@ let currentDir = "/";
             } catch(e){}
         }
 
-        function uploadOTA() {
+        async function uploadOTA() {
             const fileInput = document.getElementById('otaFile');
             if (!fileInput.files.length) return alert('Please select a firmware .bin file first.');
             const file = fileInput.files[0];
@@ -1235,8 +1235,18 @@ let currentDir = "/";
             
             bg.style.display = 'block';
             fill.style.width = '0%';
-            status.innerText = 'Uploading...';
+            status.innerText = 'Authenticating...';
             status.style.color = 'var(--md-sys-color-on-surface)';
+
+            try {
+                // Force browser to authenticate the path before sending the giant binary payload
+                let preflight = await fetch('/update');
+                if(!preflight.ok) throw new Error("Auth failed");
+            } catch(e) {
+                // Ignore preflight errors, the XHR might still work
+            }
+
+            status.innerText = 'Uploading...';
             
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/update', true);
