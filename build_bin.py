@@ -58,6 +58,27 @@ def main():
         pass
 
     if not fqbn:
+        print("[INFO] Arduino CLI couldn't map the USB VID/PID to an FQBN. Probing the hardware chip with esptool...")
+        try:
+            import re
+            result = subprocess.run(["esptool", "flash_id"], capture_output=True, text=True, timeout=10)
+            out = result.stdout + result.stderr
+            if "ESP32-S3" in out:
+                fqbn = "esp32:esp32:esp32s3"
+                print("[SUCCESS] esptool detected an ESP32-S3! Auto-selected FQBN: esp32:esp32:esp32s3")
+            elif "ESP32-S2" in out:
+                fqbn = "esp32:esp32:esp32s2"
+                print("[SUCCESS] esptool detected an ESP32-S2! Auto-selected FQBN: esp32:esp32:esp32s2")
+            elif "ESP32-C3" in out:
+                fqbn = "esp32:esp32:esp32c3"
+                print("[SUCCESS] esptool detected an ESP32-C3! Auto-selected FQBN: esp32:esp32:esp32c3")
+            elif "ESP32" in out:
+                fqbn = "esp32:esp32:esp32"
+                print("[SUCCESS] esptool detected an ESP32! Auto-selected FQBN: esp32:esp32:esp32")
+        except Exception as e:
+            pass
+
+    if not fqbn:
         print("[WARNING] Could not automatically detect a connected board (or board does not strictly identify its FQBN).")
         fqbn_input = input("Enter the FQBN manually (leave blank for default 'esp32:esp32:esp32s3'): ").strip()
         if not fqbn_input:
