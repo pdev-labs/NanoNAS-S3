@@ -23,10 +23,17 @@ def get_esp32_port():
 port = sys.argv[1] if len(sys.argv) > 1 else get_esp32_port()
 
 print(f"==========================================")
-print(f" Erasing & Factory Resetting ESP32-S3")
+print(f" ESP32-S3 Erase Utility")
 print(f" Port: {port}")
 print(f"==========================================")
-print("\n[1/3] Erasing Entire Flash Memory...")
+print("1. Normal Erase (Wipes all files, configs, and firmware)")
+print("2. Factory Reset (Erases everything AND flashes a clean bootloader)")
+choice = input("\nEnter your choice (1 or 2): ").strip()
+
+if choice == "2":
+    print("\n[1/3] Erasing Entire Flash Memory...")
+else:
+    print("\nErasing Entire Flash Memory...")
 
 exit_code = os.system(f"esptool --port {port} erase-flash")
 if exit_code != 0:
@@ -35,6 +42,10 @@ if exit_code != 0:
 if exit_code != 0:
     print("\n❌ Failed to erase flash. Is it in bootloader mode?")
     sys.exit(1)
+
+if choice != "2":
+    print("\n✅ Successfully erased the ESP32!")
+    sys.exit(0)
 
 print("\n[2/3] Generating Factory Bootloader & Partition Table...")
 tmp_dir = tempfile.mkdtemp()
