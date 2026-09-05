@@ -53,10 +53,12 @@ fs::FS& getStorage() {
 
 
 // Configuration
+#include "secrets.h"
+
 const char* ap_ssid = "NanoNAS";
 const char* ap_pass = "nanopass";
-const char* sta_ssid = "YOUR_WIFI_SSID";
-const char* sta_pass = "YOUR_WIFI_PASSWORD";
+const char* sta_ssid = SECRET_WIFI_SSID;
+const char* sta_pass = SECRET_WIFI_PASSWORD;
 
 
 AsyncWebServer server(80);
