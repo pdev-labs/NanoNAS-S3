@@ -29,36 +29,114 @@ It provides a beautiful, modern, glassmorphism web dashboard for managing, strea
 - A **USB OTG Y-Cable** to inject 5V power into the USB port.
 - A **FAT32** formatted USB Pendrive.
 
-## 🛠️ Software Dependencies
-Install the following libraries via `arduino-cli` or the Arduino IDE:
-- `ESPAsyncWebServer` (by me-no-dev)
-- `AsyncTCP`
-- `ArduinoJson`
-- `EspUsbHost` (v2.7.9+)
-- `Adafruit NeoPixel`
-
 ---
 
-## 🔒 Configuration & Security Setup
+## 🛠️ The Ultimate Deployment Guide
 
-Before flashing, you must set up your WiFi credentials securely!
+Deploying NanoNAS is incredibly easy. You can choose the **Automated Setup** (recommended) which handles everything for you, or the **Manual Setup** if you prefer complete control over your environment.
 
-1. Rename the `secrets.h.example` file in the root directory to `secrets.h`.
-2. Open `secrets.h` in any text editor and input your actual WiFi SSID and Password:
+### 🌟 Automated Setup (Recommended)
+Our cross-platform Python script (`setup.py`) acts as a smart installation wizard. It will interactively ask you for your WiFi credentials, generate your security files, and automatically download and install `arduino-cli`, `esptool`, and all necessary C++ libraries!
+
+1. Open your terminal in the cloned NanoNAS directory.
+2. Run the interactive setup wizard:
+   ```bash
+   python setup.py
+   ```
+3. Follow the on-screen prompts. That's it! You are ready to flash!
+
+### 🔧 Manual Setup (Step-by-Step)
+If you prefer to configure the NAS manually, follow the platform-specific instructions below.
+
+#### Step 1: Install `arduino-cli` and `esptool`
+<details>
+<summary><b>🐧 Linux (Ubuntu/Debian/Arch)</b></summary>
+
+1. **Install Python dependencies:**
+   ```bash
+   # Ubuntu/Debian
+   sudo apt update && sudo apt install python3-pip python3-serial curl
+   # Arch Linux
+   sudo pacman -S python-pip python-pyserial curl
+   ```
+2. **Install esptool:**
+   ```bash
+   pip install esptool
+   ```
+3. **Install arduino-cli:**
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+   sudo mv bin/arduino-cli /usr/local/bin/
+   ```
+</details>
+
+<details>
+<summary><b>🪟 Windows</b></summary>
+
+1. Ensure **Python** is installed and added to your system PATH.
+2. **Install esptool:**
+   Open Command Prompt or PowerShell as Administrator and run:
+   ```cmd
+   pip install esptool
+   ```
+3. **Install arduino-cli:**
+   Download the latest Windows MSI installer from the [official Arduino CLI page](https://arduino.github.io/arduino-cli/latest/installation/). Run the installer and ensure you check the box to **Add to PATH**.
+</details>
+
+<details>
+<summary><b>🍏 macOS</b></summary>
+
+1. **Install Homebrew** (if not already installed):
+   ```bash
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   ```
+2. **Install dependencies:**
+   ```bash
+   brew install python arduino-cli
+   pip3 install esptool
+   ```
+</details>
+
+<details>
+<summary><b>📱 Android (Termux)</b></summary>
+
+1. **Install dependencies:**
+   ```bash
+   pkg update && pkg upgrade
+   pkg install python clang make tsu
+   pip install esptool pyserial
+   ```
+2. **Note:** You must have root (`tsu`) and Termux USB API permissions enabled to flash serial devices directly from an Android phone.
+</details>
+
+#### Step 2: Install Required C++ Libraries
+Once `arduino-cli` is installed on your system, install the ESP32 core and required libraries:
+```bash
+arduino-cli core update-index
+arduino-cli core install esp32:esp32
+arduino-cli lib install "ArduinoJson" "Adafruit NeoPixel" "EspUsbHost"
+```
+*(Note: You will also need to manually clone or install `ESPAsyncWebServer` and `AsyncTCP` into your Arduino libraries folder).*
+
+#### Step 3: Configure Credentials securely
+1. Rename the `secrets.h.example` file to `secrets.h`.
+2. Open `secrets.h` and input your actual WiFi SSID and Password, along with your desired Admin credentials:
    ```c
    #define SECRET_WIFI_SSID "YourWiFiNetwork"
    #define SECRET_WIFI_PASSWORD "YourPassword123"
+   #define SECRET_ADMIN_USERNAME "admin"
+   #define SECRET_ADMIN_PASSWORD "admin123"
    ```
-3. Because `secrets.h` is in `.gitignore`, Git will automatically ignore this file. Your real password will NEVER be uploaded to GitHub!
+*(Git will automatically ignore `secrets.h` so your real password will NEVER be uploaded to GitHub!)*
 
 ---
 
-## 🚀 The Ultimate Python Utilities Guide (Cross-Platform)
+## 🚀 The Python Utilities (Cross-Platform)
 
-We have engineered five incredibly powerful, fully **cross-platform** utility scripts (`setup.py`, `build_bin.py`, `flasher.py`, `erase.py`, `info.py`). They are designed to auto-detect your OS and magically run flawlessly on **Windows, macOS, Linux, and Android (Termux)**!
+We have engineered five incredibly powerful, fully **cross-platform** utility scripts. They auto-detect your OS and magically run flawlessly on all platforms!
 
 ### 1. The Interactive Setup Wizard (`setup.py`)
-If you just cloned this repository, run this script first! It interactively prompts you for your WiFi credentials and Admin password, securely generates your `secrets.h` file, and automatically downloads and installs `arduino-cli`, `esptool`, and all necessary C++ libraries for you!
+Automatically downloads toolchains, configures your WiFi, and sets up your environment in 60 seconds.
 ```bash
 python setup.py
 ```
@@ -70,12 +148,11 @@ python build_bin.py
 ```
 
 ### 3. The Auto-Flasher (`flasher.py`)
-A blazing-fast deployment script that automatically stages your files, utilizes the `arduino-cli` build cache, and auto-detects your COM/TTY ports. No Arduino IDE required!
+A blazing-fast deployment script that automatically stages your files, utilizes the `arduino-cli` build cache, and auto-detects your COM/TTY ports.
 ```bash
 python flasher.py
 ```
-- Just type the path to your `.ino` file and hit `Tab` for auto-completion!
-- After successfully flashing, it will automatically launch a high-speed Serial Monitor so you can instantly view your boot logs and IP addresses.
+After successfully flashing, it will automatically launch a high-speed Serial Monitor so you can instantly view your boot logs and IP addresses.
 
 ### 4. The Diagnostics Tool (`info.py`)
 The ultimate hardware and software deep-dive interrogator!
@@ -100,6 +177,7 @@ python erase.py
 - Implemented **Intelligent Drag & Drop Uploads** with collision detection (Skip/Rename/Replace).
 - Re-engineered the RGB NeoPixel to feature **Apple-style exponential sine wave breathing** with dynamic state-based color mapping (Blue/Cyan/Green/Orange/Purple/Red).
 - Introduced **Universal Builder Script** (`build_bin.py`) for automatic FQBN detection.
+- Added **Interactive Setup Script** (`setup.py`) for automated cross-platform deployments.
 - Allowed admins to change their username/password for higher security.
 
 **v1.1.0 - Media & Auth Update**
@@ -114,14 +192,6 @@ python erase.py
 - Hardware-accelerated RGB FreeRTOS background task.
 
 ---
-
-## 🌍 Platform Specific Notes
-
-Because of our cross-platform architecture, the scripts run identically everywhere, but here are some quick dependency tips for different OSs:
-
-- **Linux (Arch/Ubuntu):** You may need to run `sudo pacman -S python-pyserial` or `sudo apt install python3-serial` for the Auto-Serial Monitor to function.
-- **Windows:** Ensure Python is added to your PATH during installation. The script will automatically scan your `COMx` ports.
-- **macOS:** You might need to install `esptool` via brew or pip. The script automatically handles macOS `/dev/cu.*` port nomenclature.
 
 ## 📜 License
 This project is licensed under the **GNU General Public License v3.0 (GPLv3)**. See the `LICENSE` file for details.
