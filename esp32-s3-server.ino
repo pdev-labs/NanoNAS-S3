@@ -71,8 +71,12 @@ void rgbTask(void *pvParameters) {
     }
 
     if(sysState == STATE_IDLE || sysState == STATE_READING || sysState == STATE_WRITING) {
-        if(pulseUp) { pulse += 5; if(pulse >= 255) { pulse = 255; pulseUp = false; } }
-        else { pulse -= 5; if(pulse <= 0) { pulse = 0; pulseUp = true; } }
+        // Professional Apple-style exponential sine wave breathing
+        float t = millis() / 1000.0;
+        float val = (exp(sin(t * 1.5)) - 0.36787944) * 108.49;
+        pulse = (int)val;
+        if(pulse > 255) pulse = 255;
+        if(pulse < 0) pulse = 0;
     } else {
         pulse = 0;
     }
