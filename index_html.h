@@ -928,9 +928,23 @@ let currentDir = "/";
             let arr = JSON.parse(cbData);
             let btn = document.getElementById('paste-btn');
             
+            let response = await fetch('/list?dir=' + encodeURIComponent(currentDir));
+            let existingFiles = await response.json();
+            let existingNames = existingFiles.map(f => f.name);
+            
             for (let i = 0; i < arr.length; i++) {
                 let sourcePath = arr[i];
                 let sourceName = sourcePath.substring(sourcePath.lastIndexOf('/') + 1);
+                
+                if (existingNames.includes(sourceName)) {
+                    let choice = prompt(`Item '${sourceName}' already exists in destination.\n\nType 'replace' to overwrite, 'skip' to ignore, or type a new name to rename it:`, 'replace');
+                    if (!choice || choice.toLowerCase() === 'skip') {
+                        continue;
+                    } else if (choice.toLowerCase() !== 'replace') {
+                        sourceName = choice;
+                    }
+                }
+                
                 let destPath = currentDir + "/" + sourceName;
                 if (currentDir === "/") destPath = "/" + sourceName;
                 if (sourcePath === destPath) continue; // Same location
