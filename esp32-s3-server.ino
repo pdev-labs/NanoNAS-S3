@@ -110,6 +110,9 @@ const char* sta_pass = SECRET_WIFI_PASSWORD;
 AsyncWebServer server(80);
 DNSServer dnsServer;
 
+bool needsReboot = false;
+uint32_t rebootTime = 0;
+
 // User Management
 struct AppUser {
   String username;
@@ -805,8 +808,8 @@ void setup() {
     response->addHeader("Connection", "close");
     request->send(response);
     if(shouldReboot) {
-      delay(500);
-      ESP.restart();
+      needsReboot = true;
+      rebootTime = millis();
     }
   }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
     AppUser* u = getAuthenticatedUser(request);
@@ -872,6 +875,16 @@ void loop() {
       dnsServer.stop();
       WiFi.mode(WIFI_STA);
     }
+  }
+
+  if (sysState != STATE_IDLE && sysState != STATE_ERROR) {
+    if (millis() - lastActivityMs > 3000) {
+      sysState = STATE_IDLE;
+    }
+  }
+
+  if (needsReboot && millis() - rebootTime > 1000) {
+    ESP.restart();
   }
 
   delay(10);
