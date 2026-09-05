@@ -50,16 +50,29 @@ def main():
         print(f"\n[ERROR] Could not find the compiled binary at: {bin_file}")
         sys.exit(1)
 
-    print(f"\n[SUCCESS] Found compiled binary: {bin_file}")
+    print(f"\n[SUCCESS] Found compiled binary at exact path:\n  -> {bin_file}")
+
+    ans = input("\n[?] Do you want to flash this firmware to the NanoNAS now? [Y/n]: ").strip().lower()
+    if ans == 'n':
+        print("[INFO] OTA Flash aborted by user.")
+        sys.exit(0)
 
     # 3. Prompt for OTA credentials
     print("\n--- OTA Configuration ---")
-    ip_addr = input("Enter the NanoNAS IP or mDNS (e.g., 192.168.1.100 or nanonas.local): ").strip()
+    ip_addr = input("Enter the NanoNAS IP or mDNS (leave blank for auto-detect 'nanonas.local'): ").strip()
+    if not ip_addr:
+        ip_addr = "nanonas.local"
+        
     if not ip_addr.startswith("http://"):
         ip_addr = "http://" + ip_addr
 
-    username = input("Admin Username: ").strip()
-    password = input("Admin Password: ").strip()
+    username = input("Admin Username (leave blank for 'admin'): ").strip()
+    if not username:
+        username = "admin"
+        
+    password = input("Admin Password (leave blank for 'admin'): ").strip()
+    if not password:
+        password = "admin"
 
     print("\n[INFO] Connecting to NanoNAS and uploading firmware...")
     

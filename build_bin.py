@@ -58,6 +58,7 @@ def main():
         sys.exit(1)
 
     fqbn = None
+    detected_board = None
     print("\n[INFO] Scanning for connected Arduino boards...")
     try:
         result = subprocess.run(["arduino-cli", "board", "list", "--format", "json"], capture_output=True, text=True)
@@ -67,12 +68,12 @@ def main():
                 if "matching_boards" in port and len(port["matching_boards"]) > 0:
                     fqbn = port["matching_boards"][0]["fqbn"]
                     board_name = port["matching_boards"][0]["name"]
-                    print(f"[SUCCESS] Auto-detected board: {board_name} ({fqbn})")
+                    detected_board = f"{board_name} ({fqbn})"
                     break
     except Exception as e:
         pass
 
-    if not fqbn:
+    if not detected_board:
         print("[INFO] Arduino CLI couldn't map the USB VID/PID to an FQBN. Probing the hardware chip with esptool...")
         try:
             import re
@@ -80,22 +81,27 @@ def main():
             out = result.stdout + result.stderr
             if "ESP32-S3" in out:
                 fqbn = "esp32:esp32:esp32s3"
-                print("[SUCCESS] esptool detected an ESP32-S3! Auto-selected FQBN: esp32:esp32:esp32s3")
+                detected_board = "ESP32-S3 (esp32:esp32:esp32s3)"
             elif "ESP32-S2" in out:
                 fqbn = "esp32:esp32:esp32s2"
-                print("[SUCCESS] esptool detected an ESP32-S2! Auto-selected FQBN: esp32:esp32:esp32s2")
+                detected_board = "ESP32-S2 (esp32:esp32:esp32s2)"
             elif "ESP32-C3" in out:
                 fqbn = "esp32:esp32:esp32c3"
-                print("[SUCCESS] esptool detected an ESP32-C3! Auto-selected FQBN: esp32:esp32:esp32c3")
+                detected_board = "ESP32-C3 (esp32:esp32:esp32c3)"
             elif "ESP32" in out:
                 fqbn = "esp32:esp32:esp32"
-                print("[SUCCESS] esptool detected an ESP32! Auto-selected FQBN: esp32:esp32:esp32")
+                detected_board = "ESP32 (esp32:esp32:esp32)"
         except Exception as e:
             pass
 
+    if detected_board:
+        ans = input(f"[?] I have detected {detected_board}. Is this correct? [Y/n]: ").strip().lower()
+        if ans == 'n':
+            fqbn = None
+
     if not fqbn:
         cached_fqbn = cached_data.get("fqbn", "esp32:esp32:esp32s3")
-        print("[WARNING] Could not automatically detect a connected board.")
+        print("\n[WARNING] Could not automatically detect a connected board or auto-detection was rejected.")
         fqbn_input = input(f"Enter the FQBN manually (leave blank for default '{cached_fqbn}'): ").strip()
         if not fqbn_input:
             fqbn = cached_fqbn
