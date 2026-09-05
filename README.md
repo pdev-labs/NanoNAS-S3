@@ -174,6 +174,7 @@ If you want to install everything manually piece by piece, click on your Operati
    - Connect your ESP chip via USB OTG.
    - Open Chrome on Android and navigate to [ESP Web Tools](https://espressif.github.io/esptool-js/).
    - Tap **Connect**, grant Chrome permission to access the USB device, and flash your firmware directly from the browser using WebUSB!
+   - *Note: If Chrome fails to connect due to your phone manufacturer blocking raw serial drivers, use the [Adafruit Web Serial ESPTool](https://adafruit.github.io/Adafruit_WebSerial_ESPTool/) instead, as it includes built-in poly-fills to bypass these blocks.*
 
    **Option C: The TCP Bridge Method (No Root Needed - Clever)**
    - Download a "TCP-to-UART bridge" app from the Play Store (e.g., "TCPUART").
