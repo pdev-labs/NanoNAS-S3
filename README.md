@@ -162,23 +162,32 @@ If you want to install everything manually piece by piece, click on your Operati
    ```
 
 4. **Flashing on Android:**
-   Standard Android blocks USB access for terminals, but you have three clever options:
+   Standard Android blocks USB access for terminals, but you have several clever options depending on what you want to achieve:
 
    **Option A: The Wireless OTA Method (No Root Needed - Easiest)**
    - Run `python setup.py` to configure your passwords.
    - Run `python build_bin.py` to magically compile your firmware into a `.bin` file inside Termux.
    - Open Chrome on your phone, log in to your NanoNAS dashboard, and upload the `.bin` file using the **Firmware Update (OTA)** button! No USB cables required!
 
-   **Option B: The TCP Bridge Method (No Root Needed - Clever)**
+   **Option B: Web Tools (No Termux Required - Easiest for pre-compiled bins)**
+   If you just want to flash a pre-compiled `.bin` without automation scripts, you can completely bypass Termux by using Chrome on Android:
+   - Connect your ESP chip via USB OTG.
+   - Open Chrome on Android and navigate to [ESP Web Tools](https://espressif.github.io/esptool-js/).
+   - Tap **Connect**, grant Chrome permission to access the USB device, and flash your firmware directly from the browser using WebUSB!
+
+   **Option C: The TCP Bridge Method (No Root Needed - Clever)**
    - Download a "TCP-to-UART bridge" app from the Play Store (e.g., "TCPUART").
    - Plug in your ESP32 via USB OTG. The app will ask for USB permissions. Say yes!
    - Start the TCP server in the app (e.g., on port 8080).
-   - In Termux, type this to flash the board through the bridge:
+   - In Termux, type this to flash the board through the bridge using RFC2217:
      ```bash
      esptool.py -p socket://127.0.0.1:8080 write_flash 0x0 build/your_sketch.bin
      ```
 
-   **Option C: Direct USB Flashing (Root Required)**
+   **Option D: Specialized Terminal Apps (No Root / No TCP)**
+   If you just need a command-line interface to interact with or monitor the serial output (and don't want to deal with network bridges), use apps like **Serial USB Terminal** (by Kai Morich). It handles the USB connection natively in user-space without root.
+
+   **Option E: Direct USB Flashing (Root Required)**
    - If your phone is rooted:
      ```bash
      pkg install tsu
