@@ -9,6 +9,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     <!-- Material Design Fonts and Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         .action-bar {
             display: none;
@@ -593,6 +594,21 @@ const char index_html[] PROGMEM = R"rawliteral(
             </div>
         </div>
     </div>
+
+    <!-- Markdown Viewer Modal -->
+    <div id="markdownModal" class="modal">
+        <div class="modal-content" style="max-width: 800px; height: 80vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <div class="modal-title" id="markdownTitle">Viewing File</div>
+                <div>
+                    <button class="icon-btn" id="markdownEditBtn" style="margin-right:8px;"><span class="material-symbols-outlined">edit</span></button>
+                    <button class="icon-btn" onclick="document.getElementById('markdownModal').style.display='none'"><span class="material-symbols-outlined">close</span></button>
+                </div>
+            </div>
+            <div class="modal-body" id="markdownContent" style="background: var(--md-sys-color-surface-container); padding: 24px; border-radius: 8px; overflow-y: auto; line-height: 1.6;">
+            </div>
+        </div>
+    </div>
     
     <!-- Media Player Modal -->
     <div id="mediaModal" class="modal" onclick="if(event.target==this) this.style.display='none'">
@@ -729,10 +745,11 @@ let currentDir = "/";
         let mediaList = [];
         let currentMediaIndex = -1;
 
-        const textExts = ['txt', 'csv', 'json', 'md', 'ino', 'js', 'css', 'html', 'py'];
+        const textExts = ['txt', 'csv', 'json', 'ino', 'js', 'css', 'html', 'py'];
         const imgExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
         const audioExts = ['mp3', 'wav', 'ogg'];
         const vidExts = ['mp4', 'webm'];
+        const mdExts = ['md'];
         
         function getIcon(name, isDir) {
             if(isDir) return 'folder';
@@ -740,6 +757,7 @@ let currentDir = "/";
             if(imgExts.includes(ext)) return 'image';
             if(audioExts.includes(ext)) return 'audio_file';
             if(vidExts.includes(ext)) return 'video_file';
+            if(mdExts.includes(ext)) return 'markdown';
             if(textExts.includes(ext)) return 'description';
             return 'insert_drive_file';
         }
@@ -771,8 +789,8 @@ let currentDir = "/";
                     let isImg = imgExts.includes(ext);
                     let isAud = audioExts.includes(ext);
                     let isVid = vidExts.includes(ext);
-                    let isTxt = textExts.includes(ext);
-                    let isPlayable = isImg || isAud || isVid || isTxt;
+                    let isTxt = textExts.includes(ext) || mdExts.includes(ext);
+                    let isPlayable = isImg || isTxt || isAud || isVid;
 
                     if(isPlayable && !file.isDir) mediaList.push({name: file.name, path: fullPath, type: ext});
 
@@ -782,10 +800,6 @@ let currentDir = "/";
                     // Thumbnail Logic
                     let iconHtml = '';
                     if (isImg && !file.isDir) {
-                        // Pass token in URL for image stream if using auth - Wait, browser <img> doesn't send Authorization header.
-                        // We must use a fetch with token and create object URL, OR for simplicity, the NanoNAS /stream endpoint allows GET if authenticated via cookie... wait we use Token.
-                        // Actually, if we just set the token in a cookie on login, browser fetches would work. But we use Bearer.
-                        // Let's pass token in query param: /stream?file=X&token=Y
                         iconHtml = `<div class="file-icon"><img src="/stream?file=${encodeURIComponent(fullPath)}" loading="lazy" alt="thumb"></div>`;
                     } else {
                         iconHtml = `<div class="file-icon"><span class="material-symbols-outlined">${getIcon(file.name, file.isDir)}</span></div>`;
@@ -890,8 +904,34 @@ let currentDir = "/";
         }
 
         // --- Media Player ---
-        function playMedia(path, name) {
+        async function playMedia(path, name) {
             let ext = name.split('.').pop().toLowerCase();
+            
+            if (mdExts.includes(ext)) {
+                document.getElementById('markdownTitle').innerText = name;
+                document.getElementById('markdownContent').innerHTML = '<div style="text-align:center; padding: 40px;">Loading...</div>';
+                document.getElementById('markdownModal').style.display = 'flex';
+                
+                // Set up the edit button to open the plain text editor
+                document.getElementById('markdownEditBtn').onclick = () => {
+                    document.getElementById('markdownModal').style.display = 'none';
+                    openEditor(path, name);
+                };
+                
+                try {
+                    let res = await fetch('/stream?file=' + encodeURIComponent(path));
+                    if (res.ok) {
+                        let text = await res.text();
+                        document.getElementById('markdownContent').innerHTML = marked.parse(text);
+                    } else {
+                        document.getElementById('markdownContent').innerHTML = '<div style="color:red;">Error loading markdown file.</div>';
+                    }
+                } catch(e) {
+                    document.getElementById('markdownContent').innerHTML = '<div style="color:red;">Network error.</div>';
+                }
+                return;
+            }
+            
             if(textExts.includes(ext)) return openEditor(path, name);
             
             currentMediaIndex = mediaList.findIndex(m => m.path === path);
