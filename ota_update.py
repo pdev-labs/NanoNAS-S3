@@ -58,21 +58,29 @@ def main():
         sys.exit(0)
 
     # 3. Prompt for OTA credentials
+    cached_ip = cache.get("ota_ip", "nanonas.local")
+    cached_user = cache.get("ota_user", "admin")
+    cached_pass = cache.get("ota_pass", "admin")
+
     print("\n--- OTA Configuration ---")
-    ip_addr = input("Enter the NanoNAS IP or mDNS (leave blank for auto-detect 'nanonas.local'): ").strip()
+    ip_addr = input(f"Enter the NanoNAS IP or mDNS (leave blank for '{cached_ip}'): ").strip()
     if not ip_addr:
-        ip_addr = "nanonas.local"
+        ip_addr = cached_ip
         
+    # Standardize URL
+    clean_ip = ip_addr
     if not ip_addr.startswith("http://"):
         ip_addr = "http://" + ip_addr
+    else:
+        clean_ip = ip_addr.replace("http://", "")
 
-    username = input("Admin Username (leave blank for 'admin'): ").strip()
+    username = input(f"Admin Username (leave blank for '{cached_user}'): ").strip()
     if not username:
-        username = "admin"
+        username = cached_user
         
-    password = input("Admin Password (leave blank for 'admin'): ").strip()
+    password = input(f"Admin Password (leave blank for '{cached_pass}'): ").strip()
     if not password:
-        password = "admin"
+        password = cached_pass
 
     print("\n[INFO] Connecting to NanoNAS and uploading firmware...")
     
@@ -87,6 +95,14 @@ def main():
             if response.status_code == 200 and "OK" in response.text:
                 print("\n[SUCCESS] OTA Update Successful!")
                 print("[INFO] NanoNAS is now rebooting. Please wait about 15 seconds for it to come back online.")
+                
+                # Save the successful credentials back to cache
+                cache["ota_ip"] = clean_ip
+                cache["ota_user"] = username
+                cache["ota_pass"] = password
+                with open(CACHE_FILE, "w") as out:
+                    json.dump(cache, out)
+                    
             elif response.status_code == 401:
                 print("\n[ERROR] Authentication failed. Invalid username or password.")
             else:
