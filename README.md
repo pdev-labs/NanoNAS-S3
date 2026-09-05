@@ -1,6 +1,6 @@
 # NanoNAS 🚀
 
-**NanoNAS** is an ultra-lightweight, premium, dual-mode Network Attached Storage (NAS) system designed exclusively for the **ESP32-S3** microcontroller. 
+**NanoNAS** is an ultra-lightweight, premium, dual-mode Network Attached Storage (NAS) system designed exclusively for the **ESP32-S3** microcontroller.
 
 It provides a beautiful, modern, glassmorphism web dashboard for managing, streaming, and uploading files from external USB OTG mass storage devices (FAT16/FAT32).
 
@@ -11,10 +11,17 @@ It provides a beautiful, modern, glassmorphism web dashboard for managing, strea
 - **Dual-Mode Networking:** Connects to your home WiFi. If the connection drops or is unavailable, it automatically broadcasts its own Hotspot (Access Point)!
 - **System Analytics Dashboard:** View live telemetry of your ESP32-S3's Heap, PSRAM usage, Uptime, and WiFi Signal Strength!
 - **Zero-Config mDNS:** No need to type IP addresses! Just go to `http://nanonas.local` in your browser.
-- **In-Browser Media Streaming:** Instantly stream videos and music directly from your NAS to your browser without downloading!
-- **Heavenly RGB Fade:** A dedicated FreeRTOS background task on Core 0 that flawlessly breathes a glacier-paced 65K color rainbow on your board's NeoPixel, all without interrupting the web server! 
-- **Premium UI:** A stunning, mobile-responsive dashboard with dark glassmorphism styling.
-- **Admin Authentication:** Secure your files! Requires a login (Default: `admin` / `admin`).
+- **In-Browser Media & Markdown Streaming:** Instantly stream videos, audio, images, and beautifully rendered Markdown (`.md`) files directly in your browser without downloading!
+- **Intelligent Drag & Drop Uploads:** Effortlessly upload files by dragging them into the UI. Includes smart collision detection (Skip, Rename, Replace) for duplicate files.
+- **Wireless OTA Firmware Updates:** Seamlessly flash new firmware over the air directly from the web dashboard. No USB cables required!
+- **Premium UI & Multi-User Auth:** A stunning, mobile-responsive dark glassmorphism dashboard protected by role-based user authentication (Default Admin: `admin` / `admin123`).
+- **Dynamic RGB Indicators:** A dedicated FreeRTOS background task featuring an Apple-style exponential sine wave breathing effect. Colors intelligently shift based on system state:
+  - 🔵 **Breathing Blue:** Idle (Connected to WiFi)
+  - 💧 **Breathing Cyan:** Idle (Hosting AP Hotspot)
+  - 🟢 **Pulsing Green:** Reading / Streaming Files
+  - 🟠 **Pulsing Orange:** Writing / Uploading Files
+  - 🟣 **Strobing Purple:** Receiving OTA Update
+  - 🔴 **Blinking Red:** System Error
 - **Secure Credentials Management:** WiFi secrets are kept safely in a `.gitignore`d file so you never accidentally push your password to GitHub!
 
 ## ⚙️ Hardware Requirements
@@ -48,42 +55,57 @@ Before flashing, you must set up your WiFi credentials securely!
 
 ## 🚀 The Ultimate Python Utilities Guide (Cross-Platform)
 
-We have engineered three incredibly powerful, fully **cross-platform** utility scripts (`flasher.py`, `erase.py`, `info.py`). They are designed to auto-detect your OS and magically run flawlessly on **Windows, macOS, Linux, and Android (Termux)**!
+We have engineered four incredibly powerful, fully **cross-platform** utility scripts (`build_bin.py`, `flasher.py`, `erase.py`, `info.py`). They are designed to auto-detect your OS and magically run flawlessly on **Windows, macOS, Linux, and Android (Termux)**!
 
-Make sure you have `esptool` installed globally (`pip install esptool`).
+### 1. The Universal Builder (`build_bin.py`)
+A smart compiler that auto-detects your attached Arduino board via `arduino-cli`, extracts its FQBN, and generates a `.bin` file perfectly formatted for OTA updates!
+```bash
+python build_bin.py
+```
 
-### 1. The Auto-Flasher (`flasher.py`)
+### 2. The Auto-Flasher (`flasher.py`)
 A blazing-fast deployment script that automatically stages your files, utilizes the `arduino-cli` build cache, and auto-detects your COM/TTY ports. No Arduino IDE required!
-
-**To use:**
 ```bash
 python flasher.py
 ```
 - Just type the path to your `.ino` file and hit `Tab` for auto-completion!
 - After successfully flashing, it will automatically launch a high-speed Serial Monitor so you can instantly view your boot logs and IP addresses.
 
-### 2. The Diagnostics Tool (`info.py`)
-The ultimate hardware and software deep-dive interrogator! 
-
-**To use:**
+### 3. The Diagnostics Tool (`info.py`)
+The ultimate hardware and software deep-dive interrogator!
 ```bash
 python info.py
 ```
-It extracts and renders beautiful ASCII tables containing:
-- **Hardware & Flash Specs:** ESP32 chip type, features, crystal freq, and PSRAM/Flash dimensions.
-- **Security Posture:** Secure Boot and Flash Encryption status.
-- **Firmware Intel:** Dynamically unpacks the raw `.bin` partition on your chip to extract the Project Name, Compile Time, Date, and ESP-IDF version of your currently running code!
+Extracts and renders beautiful ASCII tables containing Hardware Specs, Security Posture, and dynamically unpacked Firmware Intel.
 
-### 3. The Nuclear Reset (`erase.py`)
-If your ESP32-S3 gets stuck in a boot loop or the partition table gets corrupted, this script rescues it.
-
-**To use:**
+### 4. The Nuclear Reset (`erase.py`)
+If your ESP32-S3 gets stuck in a boot loop or the partition table gets corrupted, this script rescues it by erasing the flash or pushing a dummy bootloader.
 ```bash
 python erase.py
 ```
-It gives you an interactive menu:
-- **Option 1 (Normal Erase):** Formats the flash memory using `esptool`.
-- **Option 2 (Factory Reset):** Not only erases the memory, but compiles and flashes a dummy bootloader directly to the chip to restore completely ruined partition tables.
+
+---
+
+## 📦 Releases & Version History
+
+**v1.2.0 - The Pro Update (Latest)**
+- Added **Wireless OTA Firmware Updates** via the Web Dashboard.
+- Implemented **In-Browser Markdown Viewer** utilizing `marked.js`.
+- Implemented **Intelligent Drag & Drop Uploads** with collision detection (Skip/Rename/Replace).
+- Re-engineered the RGB NeoPixel to feature **Apple-style exponential sine wave breathing** with dynamic state-based color mapping (Blue/Cyan/Green/Orange/Purple/Red).
+- Introduced **Universal Builder Script** (`build_bin.py`) for automatic FQBN detection.
+- Allowed admins to change their username/password for higher security.
+
+**v1.1.0 - Media & Auth Update**
+- Built **In-Browser Media Player** natively supporting `.mp4`, `.webm`, `.mp3`, and `.wav` streaming directly from the NAS!
+- Implemented Multi-User Role-based Authentication (Admin vs Standard Users).
+- Polished the Material You Glassmorphism UI.
+
+**v1.0.0 - Initial Release**
+- Core USB OTG File Manager features (Upload, Download, Delete, Rename).
+- Dual-Mode WiFi Networking (STA / AP Fallback).
+- mDNS support and system analytics integration.
+- Hardware-accelerated RGB FreeRTOS background task.
 
 ---
 
@@ -94,7 +116,6 @@ Because of our cross-platform architecture, the scripts run identically everywhe
 - **Linux (Arch/Ubuntu):** You may need to run `sudo pacman -S python-pyserial` or `sudo apt install python3-serial` for the Auto-Serial Monitor to function.
 - **Windows:** Ensure Python is added to your PATH during installation. The script will automatically scan your `COMx` ports.
 - **macOS:** You might need to install `esptool` via brew or pip. The script automatically handles macOS `/dev/cu.*` port nomenclature.
-- **Android (Termux):** You must have `termux-usb` permissions enabled, and you may need to run the scripts as root (`tsu`) depending on your device's USB OTG permission layers to allow `esptool` access to `/dev/bus/usb`.
 
 ## 📜 License
 This project is licensed under the **GNU General Public License v3.0 (GPLv3)**. See the `LICENSE` file for details.
