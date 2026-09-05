@@ -3,6 +3,21 @@ import os
 import subprocess
 import sys
 
+def get_esp32_port():
+    try:
+        import serial.tools.list_ports
+        ports = serial.tools.list_ports.comports()
+        for p in ports:
+            desc = p.description.lower()
+            if "esp32" in desc or "ch340" in desc or "cp210" in desc or "usb jtag" in desc:
+                return p.device
+        for p in ports:
+            if "ttyUSB" in p.device or "ttyACM" in p.device:
+                return p.device
+    except ImportError:
+        pass
+    return "/dev/ttyACM0"
+
 def main():
     print("========================================")
     print(" ESP32-S3 Auto-Flasher Script")
@@ -43,7 +58,10 @@ def main():
         sys.exit(1)
         
     ext = os.path.splitext(file_path)[1].lower()
-    port = "/dev/ttyACM0" # Default port for ESP32-S3 native USB
+    
+    # Auto-Detect Port
+    port = get_esp32_port()
+    print(f"[INFO] Auto-detected ESP32 on port: {port}")
     
     if ext == ".ino":
         print(f"\n[INFO] Detected an Arduino sketch (.ino).")
@@ -67,9 +85,6 @@ def main():
             print(f"[INFO] Sketch is correctly structured in '{parent_dir_name}/'. Compiling in-place.")
             sketch_dir = source_dir
         else:
-            import shutil
-            import tempfile
-            
             print(f"[INFO] Sketch is NOT in a folder named '{sketch_name}'. Staging to temp dir...")
             # Create a temp directory and stage the sketch inside it
             tmp_dir = tempfile.mkdtemp()
@@ -106,8 +121,17 @@ def main():
         
         if result.returncode == 0:
             print("\n[SUCCESS] Sketch successfully flashed to the ESP32-S3!")
+            try:
+                import serial
+                print("[INFO] Launching Serial Monitor in 2 seconds... (Press Ctrl+C to exit)")
+                import time
+                time.sleep(2)
+                subprocess.run([sys.executable, "-m", "serial.tools.miniterm", port, "115200"])
+            except ImportError:
+                print("\n[INFO] Skipping Auto-Serial Monitor because 'pyserial' is not installed.")
+                print("[INFO] To enable this feature on Arch Linux, run: sudo pacman -S python-pyserial")
         else:
-            print("\n[ERROR] Flashing failed!")
+            print("\n[ERROR] Upload failed!")
             
     elif ext == ".bin":
         print(f"\n[INFO] Detected a compiled binary (.bin).")
