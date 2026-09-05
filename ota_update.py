@@ -12,8 +12,10 @@ CACHE_FILE = ".build_cache.json"
 def check_ip(ip):
     try:
         r = requests.get(f"http://{ip}/", timeout=1.0)
-        if r.status_code == 401 and 'NanoNAS' in r.headers.get('WWW-Authenticate', ''):
-            return ip
+        if r.status_code == 401:
+            auth_header = r.headers.get('WWW-Authenticate', '')
+            if 'NanoNAS' in auth_header or 'Login Required' in auth_header:
+                return ip
     except Exception:
         pass
     return None
