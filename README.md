@@ -262,27 +262,12 @@ python erase.py
 
 ---
 
-## 📦 Releases & Version History
+## 📦 Latest Release
 
-**v1.2.0 - The Pro Update (Latest)**
-- Added **Wireless OTA Firmware Updates** via the Web Dashboard.
-- Implemented **In-Browser Markdown Viewer** utilizing `marked.js`.
-- Implemented **Intelligent Drag & Drop Uploads** with collision detection (Skip/Rename/Replace).
-- Re-engineered the RGB NeoPixel to feature **Apple-style exponential sine wave breathing** with dynamic state-based color mapping (Blue/Cyan/Green/Orange/Purple/Red).
-- Introduced **Universal Builder Script** (`build_bin.py`) for automatic FQBN detection.
-- Added **Interactive Setup Script** (`setup.py`) for automated cross-platform deployments.
-- Allowed admins to change their username/password for higher security.
+**v1.2.0 - The Pro Update**
+This release brings **Wireless OTA Firmware Updates**, an **In-Browser Markdown Viewer**, **Intelligent Drag & Drop Uploads** with collision detection, and a stunning **Apple-style RGB breathing effect**. We also introduced powerful cross-platform Python scripts (`setup.py`, `build_bin.py`) for fully automated deployments!
 
-**v1.1.0 - Media & Auth Update**
-- Built **In-Browser Media Player** natively supporting `.mp4`, `.webm`, `.mp3`, and `.wav` streaming directly from the NAS!
-- Implemented Multi-User Role-based Authentication (Admin vs Standard Users).
-- Polished the Material You Glassmorphism UI.
-
-**v1.0.0 - Initial Release**
-- Core USB OTG File Manager features (Upload, Download, Delete, Rename).
-- Dual-Mode WiFi Networking (STA / AP Fallback).
-- mDNS support and system analytics integration.
-- Hardware-accelerated RGB FreeRTOS background task.
+👉 *For a complete list of changes and past versions, please check the [Releases tab](https://github.com/pdev-labs/NanoNAS-S3/releases) on GitHub.*
 
 ---
 
