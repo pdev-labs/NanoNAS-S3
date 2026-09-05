@@ -1065,10 +1065,9 @@ let currentDir = "/";
                 }
             }
             
-            if (action === 'move') {
-                sessionStorage.removeItem('clipboardData');
-                sessionStorage.removeItem('clipboardAction');
-            }
+            sessionStorage.removeItem('clipboardData');
+            sessionStorage.removeItem('clipboardAction');
+            
             updatePasteButton();
             loadFiles();
         }
