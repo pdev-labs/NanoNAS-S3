@@ -180,7 +180,7 @@ AppUser* getAuthenticatedUser(AsyncWebServerRequest *request) {
 bool checkAuth(AsyncWebServerRequest *request, bool requireAdmin = false) {
   AppUser* u = getAuthenticatedUser(request);
   if (!u) {
-    request->requestAuthentication();
+    request->requestAuthentication("NanoNAS S3");
     return false;
   }
   if (requireAdmin && u->role != "admin") {
