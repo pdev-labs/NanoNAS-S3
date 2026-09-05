@@ -635,7 +635,15 @@ const char index_html[] PROGMEM = R"rawliteral(
                     <option value="user">User</option>
                     <option value="admin">Admin</option>
                 </select>
-                <button class="btn btn-filled" onclick="addUser()">ADD USER</button>
+                <button class="btn btn-filled" onclick="addUser()" style="width:100%; margin-bottom:24px;">ADD USER</button>
+                
+                <h3 style="margin-bottom:16px;">Firmware Update (OTA)</h3>
+                <input type="file" id="otaFile" accept=".bin" style="margin-bottom:8px;">
+                <button class="btn btn-filled" onclick="uploadOTA()" style="width:100%; margin-bottom:8px;">UPDATE FIRMWARE</button>
+                <div class="storage-bar-bg" id="otaProgressBg" style="display:none; height:8px; margin-bottom:8px;">
+                    <div class="storage-bar-fill" id="otaProgressFill" style="width:0%; background:var(--md-sys-color-primary);"></div>
+                </div>
+                <div id="otaStatus" style="font-size:14px; text-align:center;"></div>
             </div>
         </div>
     </div>
@@ -1160,6 +1168,53 @@ let currentDir = "/";
                 let res = await fetch('/api/users?username=' + encodeURIComponent(u), {method: 'DELETE'});
                 if(res.ok) loadUsers();
             } catch(e){}
+        }
+
+        function uploadOTA() {
+            const fileInput = document.getElementById('otaFile');
+            if (!fileInput.files.length) return alert('Please select a firmware .bin file first.');
+            const file = fileInput.files[0];
+            const bg = document.getElementById('otaProgressBg');
+            const fill = document.getElementById('otaProgressFill');
+            const status = document.getElementById('otaStatus');
+            
+            bg.style.display = 'block';
+            fill.style.width = '0%';
+            status.innerText = 'Uploading...';
+            status.style.color = 'var(--md-sys-color-on-surface)';
+            
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/update', true);
+            
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const pct = Math.round((e.loaded / e.total) * 100);
+                    fill.style.width = pct + '%';
+                    status.innerText = `Uploading... ${pct}%`;
+                }
+            };
+            
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    fill.style.background = 'var(--md-sys-color-primary)';
+                    status.innerText = 'Success! Rebooting NAS...';
+                    setTimeout(() => window.location.reload(), 3000);
+                } else {
+                    fill.style.background = 'var(--md-sys-color-error)';
+                    status.innerText = 'Update failed!';
+                    status.style.color = 'var(--md-sys-color-error)';
+                }
+            };
+            
+            xhr.onerror = function() {
+                fill.style.background = 'var(--md-sys-color-error)';
+                status.innerText = 'Network error during update!';
+                status.style.color = 'var(--md-sys-color-error)';
+            };
+            
+            const formData = new FormData();
+            formData.append("update", file, file.name);
+            xhr.send(formData);
         }
 
         function toggleSelection(path, isChecked) {

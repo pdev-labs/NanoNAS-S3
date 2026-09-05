@@ -12,6 +12,16 @@
 // CONFIGURATION
 // ==========================================
 // Uncomment the line below to ENABLE the heavenly RGB fade background task
+enum SystemState {
+  STATE_IDLE,
+  STATE_READING,
+  STATE_WRITING,
+  STATE_ERROR,
+  STATE_UPDATING
+};
+volatile SystemState sysState = STATE_IDLE;
+volatile uint32_t lastActivityMs = 0;
+
 // #define ENABLE_RGB_FADE
 
 #ifdef ENABLE_RGB_FADE
@@ -21,21 +31,59 @@
 #define NUMPIXELS 1
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
-// FreeRTOS Task for the heavenly slow-mo RGB Fade
+// FreeRTOS Task for Smart RGB Feedback
 void rgbTask(void *pvParameters) {
   pixels.begin();
   pixels.setBrightness(100);
+  long hue = 0;
+  int pulse = 0;
+  bool pulseUp = true;
   
   while (true) {
-    for (long firstPixelHue = 0; firstPixelHue < 65536; firstPixelHue += 5) {
-      for (int i = 0; i < NUMPIXELS; i++) {
-        uint32_t color = pixels.gamma32(pixels.ColorHSV(firstPixelHue, 255, 255));
-        pixels.setPixelColor(i, color);
-      }
-      pixels.show();
-      // vTaskDelay is used instead of delay() to properly yield in FreeRTOS
-      vTaskDelay(pdMS_TO_TICKS(2));
+    if (sysState != STATE_IDLE && sysState != STATE_ERROR && (millis() - lastActivityMs > 2000)) {
+        sysState = STATE_IDLE;
     }
+    
+    uint32_t color = 0;
+    
+    switch(sysState) {
+      case STATE_IDLE:
+        // Slow glowing rainbow
+        color = pixels.gamma32(pixels.ColorHSV(hue, 255, 255));
+        hue += 10;
+        if(hue >= 65536) hue = 0;
+        break;
+      case STATE_READING:
+        // Pulsing Cyan
+        color = pixels.Color(0, pulse, pulse);
+        break;
+      case STATE_WRITING:
+        // Pulsing Purple
+        color = pixels.Color(pulse, 0, pulse);
+        break;
+      case STATE_ERROR:
+        // Blinking Red
+        color = (millis() % 500 < 250) ? pixels.Color(255, 0, 0) : pixels.Color(0, 0, 0);
+        if (millis() - lastActivityMs > 3000) sysState = STATE_IDLE;
+        break;
+      case STATE_UPDATING:
+        // Strobing Green
+        color = (millis() % 200 < 100) ? pixels.Color(0, 255, 0) : pixels.Color(0, 0, 0);
+        break;
+    }
+
+    if(sysState == STATE_READING || sysState == STATE_WRITING) {
+        if(pulseUp) { pulse += 15; if(pulse >= 255) { pulse = 255; pulseUp = false; } }
+        else { pulse -= 15; if(pulse <= 0) { pulse = 0; pulseUp = true; } }
+    } else {
+        pulse = 0;
+    }
+
+    for (int i = 0; i < NUMPIXELS; i++) {
+      pixels.setPixelColor(i, color);
+    }
+    pixels.show();
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
 #endif
@@ -93,7 +141,7 @@ void loadUsers() {
   }
   // Ensure default admin exists
   if (users.empty()) {
-    users.push_back({"admin", "admin", "admin"});
+    users.push_back({SECRET_ADMIN_USERNAME, SECRET_ADMIN_PASSWORD, "admin"});
   }
 }
 
@@ -645,8 +693,9 @@ void setup() {
       if (!getStorage().exists(path)) return request->send(404, "text/plain", "Not Found");
 
       String filename = path.substring(path.lastIndexOf('/') + 1);
-      AsyncWebServerResponse *response = request->beginResponse(LittleFS, path, "application/octet-stream", true);
+      AsyncWebServerResponse *response = request->beginResponse(getStorage(), path, "application/octet-stream", true);
       response->addHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
+      sysState = STATE_READING; lastActivityMs = millis();
       request->send(response);
     }
   });
@@ -657,6 +706,7 @@ void setup() {
     if (request->hasParam("file")) {
       String path = sanitizePath(request->getParam("file")->value());
       if (!getStorage().exists(path)) return request->send(404, "text/plain", "Not Found");
+      sysState = STATE_READING; lastActivityMs = millis();
       request->send(getStorage(), path, getContentType(path));
     }
   });
@@ -736,7 +786,11 @@ void setup() {
         ctx->f = getStorage().open(path, append ? FILE_APPEND : FILE_WRITE);
         request->_tempObject = ctx;
       }
-      if(ctx && ctx->f) ctx->f.write(data, len);
+      if(ctx && ctx->f) {
+          sysState = STATE_WRITING;
+          lastActivityMs = millis();
+          ctx->f.write(data, len);
+      }
     }
   );
 
@@ -754,6 +808,10 @@ void setup() {
   }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
     AppUser* u = getAuthenticatedUser(request);
     if (!u || u->role != "admin") return;
+    
+    sysState = STATE_UPDATING;
+    lastActivityMs = millis();
+    
     if(!index){
       Serial.printf("Update Start: %s\n", filename.c_str());
       if(!Update.begin(UPDATE_SIZE_UNKNOWN)){
