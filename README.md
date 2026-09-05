@@ -115,11 +115,23 @@ cd NanoNAS-S3
    pkg update && pkg upgrade
    pkg install python clang make git
    ```
-2. **For Non-Rooted Devices (OTA Updates):**
-   Standard `esptool.py` cannot access USB devices on non-rooted Androids due to OS security policies. However, you can use Termux purely as a build environment!
-   - Run `python setup.py` to install libraries and configure your credentials.
-   - Run `python build_bin.py` to compile your `.bin` file.
+2. **For Non-Rooted Devices:**
+   Standard `esptool.py` cannot access USB devices on non-rooted Androids due to OS security policies. However, you have two options:
+   
+   **Option A: The OTA Method (Recommended)**
+   - Run `python setup.py` to configure your credentials.
+   - Run `python build_bin.py` to compile your `.bin` file inside Termux.
    - Open your Android browser, log in to your NanoNAS dashboard, and upload the generated `.bin` file via the **Firmware Update (OTA)** panel! No USB cables required!
+
+   **Option B: The TCP Bridge Method (USB Flashing)**
+   You can bypass the USB restriction by routing the USB serial connection through a local TCP socket using a companion app:
+   - Download a TCP-to-UART bridge app from the Play Store (e.g., "TCPUART" or "Serial to TCP bridge").
+   - Connect your ESP32 via USB OTG and grant the app USB permissions.
+   - Start the TCP server in the app (e.g., on port 8080).
+   - In Termux, you can now flash the board by passing the TCP port to `esptool` using RFC2217:
+     ```bash
+     esptool.py -p socket://127.0.0.1:8080 write_flash 0x0 build/your_sketch.bin
+     ```
 
 3. **For Rooted Devices (Direct USB Flashing):**
    If you are rooted and want to flash via a USB OTG cable directly from Termux:
