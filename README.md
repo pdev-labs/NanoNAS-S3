@@ -31,49 +31,76 @@ It provides a beautiful, modern, glassmorphism web dashboard for managing, strea
 
 ---
 
-## 🛠️ The Ultimate Deployment Guide
+## 🛠️ The Ultimate Beginner's Deployment Guide
 
-Deploying NanoNAS is incredibly easy. You can choose the **Automated Setup** (recommended) which handles everything for you, or the **Manual Setup** if you prefer complete control over your environment.
+Don't know how to code? Never used a terminal before? **No problem!** 
+We have designed NanoNAS to be so incredibly easy to install that a 5-year-old could do it. Just follow these exact baby steps!
 
-### 🌟 Automated Setup (Recommended)
-Our cross-platform Python script (`setup.py`) acts as a smart installation wizard. It will interactively ask you for your WiFi credentials, generate your security files, and automatically download and install `arduino-cli`, `esptool`, and all necessary C++ libraries!
+### 🌟 Automated Setup (The "One-Click" Magic)
+Our smart robot script (`setup.py`) handles 99% of the hard work for you. It will download the tools, configure your WiFi, and get everything ready.
 
-1. **Clone the repository:**
+#### Step 1: Open your Terminal (Command Prompt)
+- **Windows:** Click the Start menu, type `cmd`, and press Enter.
+- **Mac:** Press `Command + Space`, type `Terminal`, and press Enter.
+- **Linux:** Press `Ctrl + Alt + T`.
+- **Android:** Download the app `Termux` from F-Droid, open it, and type `pkg install git python` then press Enter.
+
+#### Step 2: Download (Clone) the Code
+In your terminal window, carefully type (or copy-paste) this exact command and press Enter:
+```bash
+git clone https://github.com/pdev-labs/NanoNAS-S3.git
+```
+*This downloads the NanoNAS code from the internet directly to your computer!*
+
+#### Step 3: Go inside the NanoNAS folder
+Now, tell your terminal to go inside the folder it just downloaded by typing this and pressing Enter:
+```bash
+cd NanoNAS-S3
+```
+
+#### Step 4: Run the Magic Setup Wizard!
+Now for the fun part! Type this command and press Enter:
+```bash
+python setup.py
+```
+The wizard will wake up and start talking to you! Just answer its questions:
+1. It will ask if you want to install `esptool` and `arduino-cli`. **Type `y` for yes!**
+2. It will ask for your **WiFi Name (SSID)** and **WiFi Password**. Type them carefully! This is how the NAS connects to your home router.
+3. It will ask you to create an **Admin Username and Password**. This is your secret login to access your files later.
+
+#### Step 5: Flash the board!
+Plug your ESP32-S3 into your computer with a USB cable.
+Type this final command and press Enter:
+```bash
+python flasher.py
+```
+*Boom!* You just built and installed an entire Network Attached Storage operating system!
+
+---
+
+### 🔧 Manual Setup (For Advanced Hackers)
+If you want to install everything manually piece by piece, click on your Operating System below for the exact commands.
+
+<details>
+<summary><b>🐧 Linux (Ubuntu / Debian / Arch)</b></summary>
+
+1. **Install Python and Git:**
+   ```bash
+   # Ubuntu/Debian
+   sudo apt update && sudo apt install python3-pip python3-serial curl git
+   # Arch Linux
+   sudo pacman -S python-pip python-pyserial curl git
+   ```
+2. **Download the code:**
    ```bash
    git clone https://github.com/pdev-labs/NanoNAS-S3.git
    cd NanoNAS-S3
    ```
-2. **Run the interactive setup wizard:**
-   ```bash
-   python setup.py
-   ```
-3. Follow the on-screen prompts. That's it! You are ready to flash!
-
-### 🔧 Manual Setup (Step-by-Step)
-If you prefer to configure the NAS manually, follow the platform-specific instructions below.
-
-#### Step 1: Clone the Repository
-```bash
-git clone https://github.com/pdev-labs/NanoNAS-S3.git
-cd NanoNAS-S3
-```
-
-#### Step 2: Install `arduino-cli` and `esptool`
-<details>
-<summary><b>🐧 Linux (Ubuntu/Debian/Arch)</b></summary>
-
-1. **Install Python dependencies:**
-   ```bash
-   # Ubuntu/Debian
-   sudo apt update && sudo apt install python3-pip python3-serial curl
-   # Arch Linux
-   sudo pacman -S python-pip python-pyserial curl
-   ```
-2. **Install esptool:**
+3. **Install esptool (The flashing tool):**
    ```bash
    pip install esptool
    ```
-3. **Install arduino-cli:**
+4. **Install arduino-cli (The compiler):**
    ```bash
    curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
    sudo mv bin/arduino-cli /usr/local/bin/
@@ -83,82 +110,97 @@ cd NanoNAS-S3
 <details>
 <summary><b>🪟 Windows</b></summary>
 
-1. Ensure **Python** is installed and added to your system PATH.
-2. **Install esptool:**
-   Open Command Prompt or PowerShell as Administrator and run:
+1. **Install Python & Git:**
+   - Download and install [Python](https://www.python.org/downloads/). *(CRITICAL: Check the box that says "Add Python to PATH" during install!)*
+   - Download and install [Git for Windows](https://git-scm.com/download/win).
+2. **Download the code:**
+   Open Command Prompt and type:
+   ```cmd
+   git clone https://github.com/pdev-labs/NanoNAS-S3.git
+   cd NanoNAS-S3
+   ```
+3. **Install esptool:**
    ```cmd
    pip install esptool
    ```
-3. **Install arduino-cli:**
-   Download the latest Windows MSI installer from the [official Arduino CLI page](https://arduino.github.io/arduino-cli/latest/installation/). Run the installer and ensure you check the box to **Add to PATH**.
+4. **Install arduino-cli:**
+   Download the latest Windows MSI installer from the [official Arduino CLI page](https://arduino.github.io/arduino-cli/latest/installation/). Run the installer and check the box to **Add to PATH**.
 </details>
 
 <details>
 <summary><b>🍏 macOS</b></summary>
 
-1. **Install Homebrew** (if not already installed):
+1. **Install Homebrew** (The Mac App Store for nerds):
    ```bash
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
    ```
-2. **Install dependencies:**
+2. **Install everything else:**
    ```bash
-   brew install python arduino-cli
+   brew install python arduino-cli git
    pip3 install esptool
+   ```
+3. **Download the code:**
+   ```bash
+   git clone https://github.com/pdev-labs/NanoNAS-S3.git
+   cd NanoNAS-S3
    ```
 </details>
 
 <details>
 <summary><b>📱 Android (Termux)</b></summary>
 
-1. **Install dependencies:**
+1. **Download Termux:** (Get it from F-Droid, NOT the Google Play Store).
+2. **Install tools:**
    ```bash
    pkg update && pkg upgrade
    pkg install python clang make git
    ```
-2. **For Non-Rooted Devices:**
-   Standard `esptool.py` cannot access USB devices on non-rooted Androids due to OS security policies. However, you have two options:
-   
-   **Option A: The OTA Method (Recommended)**
-   - Run `python setup.py` to configure your credentials.
-   - Run `python build_bin.py` to compile your `.bin` file inside Termux.
-   - Open your Android browser, log in to your NanoNAS dashboard, and upload the generated `.bin` file via the **Firmware Update (OTA)** panel! No USB cables required!
+3. **Download the code:**
+   ```bash
+   git clone https://github.com/pdev-labs/NanoNAS-S3.git
+   cd NanoNAS-S3
+   ```
 
-   **Option B: The TCP Bridge Method (USB Flashing)**
-   You can bypass the USB restriction by routing the USB serial connection through a local TCP socket using a companion app:
-   - Download a TCP-to-UART bridge app from the Play Store (e.g., "TCPUART" or "Serial to TCP bridge").
-   - Connect your ESP32 via USB OTG and grant the app USB permissions.
+4. **Flashing on Android:**
+   Standard Android blocks USB access for terminals, but you have three clever options:
+
+   **Option A: The Wireless OTA Method (No Root Needed - Easiest)**
+   - Run `python setup.py` to configure your passwords.
+   - Run `python build_bin.py` to magically compile your firmware into a `.bin` file inside Termux.
+   - Open Chrome on your phone, log in to your NanoNAS dashboard, and upload the `.bin` file using the **Firmware Update (OTA)** button! No USB cables required!
+
+   **Option B: The TCP Bridge Method (No Root Needed - Clever)**
+   - Download a "TCP-to-UART bridge" app from the Play Store (e.g., "TCPUART").
+   - Plug in your ESP32 via USB OTG. The app will ask for USB permissions. Say yes!
    - Start the TCP server in the app (e.g., on port 8080).
-   - In Termux, you can now flash the board by passing the TCP port to `esptool` using RFC2217:
+   - In Termux, type this to flash the board through the bridge:
      ```bash
      esptool.py -p socket://127.0.0.1:8080 write_flash 0x0 build/your_sketch.bin
      ```
 
-3. **For Rooted Devices (Direct USB Flashing):**
-   If you are rooted and want to flash via a USB OTG cable directly from Termux:
-   ```bash
-   pkg install tsu
-   pip install esptool pyserial
-   ```
-   *Note: You must have Termux USB API permissions enabled, and you will need to run the flash scripts as root (`tsu`) to allow `esptool` access to `/dev/bus/usb`.*
+   **Option C: Direct USB Flashing (Root Required)**
+   - If your phone is rooted:
+     ```bash
+     pkg install tsu
+     pip install esptool pyserial
+     ```
+   - *Note: Run `tsu` first to become the root user, then you can use `flasher.py` normally!*
 </details>
 
-#### Step 3: Install Required C++ Libraries
-Once `arduino-cli` is installed on your system, install the ESP32 core and required libraries:
+#### Advanced Step: Install C++ Libraries Manually
+If you didn't use `setup.py`, you must install these libraries yourself:
 ```bash
 arduino-cli core update-index
 arduino-cli core install esp32:esp32
 arduino-cli lib install "ArduinoJson" "Adafruit NeoPixel" "EspUsbHost"
 ```
-*(Note: You will also need to manually clone or install `ESPAsyncWebServer` and `AsyncTCP` into your Arduino libraries folder).*
 
-#### Step 4: Configure Credentials securely
+#### Advanced Step: Configure Passwords Manually
 1. Rename the `secrets.h.example` file to `secrets.h`.
-2. Open `secrets.h` and input your actual WiFi SSID and Password, along with your desired Admin credentials:
+2. Open `secrets.h` in Notepad/TextEdit and type your WiFi Name and Password:
    ```c
-   #define SECRET_WIFI_SSID "YourWiFiNetwork"
-   #define SECRET_WIFI_PASSWORD "YourPassword123"
-   #define SECRET_ADMIN_USERNAME "admin"
-   #define SECRET_ADMIN_PASSWORD "admin123"
+   #define SECRET_WIFI_SSID "MyHomeWiFi"
+   #define SECRET_WIFI_PASSWORD "MySecretPassword123"
    ```
 *(Git will automatically ignore `secrets.h` so your real password will NEVER be uploaded to GitHub!)*
 
