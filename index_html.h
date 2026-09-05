@@ -648,6 +648,27 @@ const char index_html[] PROGMEM = R"rawliteral(
         </div>
     </div>
 
+    <!-- Collision Modal -->
+    <div id="collisionModal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <div class="modal-title">File Conflict</div>
+                <button class="icon-btn" onclick="handleCollision('skip')"><span class="material-symbols-outlined">close</span></button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom:16px;">The item <b id="collisionFilename"></b> already exists in this folder. What would you like to do?</p>
+                <div style="display:flex; gap:8px; margin-bottom:16px;">
+                    <button class="btn btn-error" style="flex:1;" onclick="handleCollision('replace')">Replace</button>
+                    <button class="btn" style="flex:1; background:var(--md-sys-color-surface-container-high); color:var(--md-sys-color-on-surface);" onclick="handleCollision('skip')">Skip</button>
+                </div>
+                <p style="margin-bottom:8px; font-size:14px; font-weight:500;">Or keep both and rename:</p>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" id="collisionRenameInput" class="input-field" style="flex:1;">
+                    <button class="btn btn-filled" onclick="handleCollision('rename')">Rename</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
         // --- Theme ---
@@ -921,26 +942,46 @@ let currentDir = "/";
             sessionStorage.setItem('clipboardData', JSON.stringify([path]));
             updatePasteButton();
         }
+        let resolveCollision;
+
+        function promptCollision(filename) {
+            return new Promise(resolve => {
+                document.getElementById('collisionFilename').innerText = filename;
+                document.getElementById('collisionRenameInput').value = filename;
+                document.getElementById('collisionModal').style.display = 'flex';
+                resolveCollision = resolve;
+            });
+        }
+
+        function handleCollision(action) {
+            document.getElementById('collisionModal').style.display = 'none';
+            if (action === 'rename') {
+                resolveCollision(document.getElementById('collisionRenameInput').value);
+            } else {
+                resolveCollision(action);
+            }
+        }
+
         async function pasteFile() {
             let cbData = sessionStorage.getItem('clipboardData');
             let action = sessionStorage.getItem('clipboardAction');
             if (!cbData || !action) return;
             let arr = JSON.parse(cbData);
             let btn = document.getElementById('paste-btn');
-            
+
             let response = await fetch('/list?dir=' + encodeURIComponent(currentDir));
             let existingFiles = await response.json();
             let existingNames = existingFiles.map(f => f.name);
-            
+
             for (let i = 0; i < arr.length; i++) {
                 let sourcePath = arr[i];
                 let sourceName = sourcePath.substring(sourcePath.lastIndexOf('/') + 1);
-                
+
                 if (existingNames.includes(sourceName)) {
-                    let choice = prompt(`Item '${sourceName}' already exists in destination.\n\nType 'replace' to overwrite, 'skip' to ignore, or type a new name to rename it:`, 'replace');
-                    if (!choice || choice.toLowerCase() === 'skip') {
+                    let choice = await promptCollision(sourceName);
+                    if (choice === 'skip') {
                         continue;
-                    } else if (choice.toLowerCase() !== 'replace') {
+                    } else if (choice !== 'replace') {
                         sourceName = choice;
                     }
                 }
