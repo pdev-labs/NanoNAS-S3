@@ -23,6 +23,22 @@ def get_esp32_port():
     else:
         return "/dev/ttyACM0"
 
+def get_command(module_name):
+    import shutil
+    # Try Python module execution first
+    cmd = [sys.executable, "-m", module_name, "-h"]
+    res = subprocess.run(cmd, capture_output=True)
+    if res.returncode == 0:
+        return [sys.executable, "-m", module_name]
+    
+    # Fallback to globally installed binary (common on Arch Linux/pipx)
+    if shutil.which(module_name):
+        return [module_name]
+    if shutil.which(f"{module_name}.py"):
+        return [f"{module_name}.py"]
+        
+    return [module_name] # Let it fail natively
+
 def main():
     port = sys.argv[1] if len(sys.argv) > 1 else get_esp32_port()
 
@@ -34,16 +50,16 @@ def main():
 
     # Commands to extract maximum information
     commands = {
-        "Hardware Specs & Flash Info": (["esptool"], ["flash_id"]),
-        "Security Info (Software/Encryption)": (["esptool"], ["get_security_info"]),
-        "Raw MAC Addresses": (["esptool"], ["read_mac"]),
-        "Ultimate eFuse Configuration Dump": (["espefuse"], ["summary"])
+        "Hardware Specs & Flash Info": (get_command("esptool"), ["flash_id"]),
+        "Security Info (Software/Encryption)": (get_command("esptool"), ["get_security_info"]),
+        "Raw MAC Addresses": (get_command("esptool"), ["read_mac"]),
+        "Ultimate eFuse Configuration Dump": (get_command("espefuse"), ["summary"])
     }
 
     try:
-        for title, (module, args) in commands.items():
+        for title, (base_cmd, args) in commands.items():
             print(f"--- {title} ---")
-            cmd = [sys.executable, "-m", module[0], "--port", port] + args
+            cmd = base_cmd + ["--port", port] + args
             result = subprocess.run(cmd, capture_output=True, text=True)
             
             if result.returncode == 0:
@@ -59,12 +75,16 @@ def main():
                 print("\n".join(clean_output))
                 print()
             else:
-                print(f"❌ Failed to retrieve {title}. (Error code {result.returncode})\n")
+                print(f"❌ Failed to retrieve {title}. (Error code {result.returncode})")
+                if "No module named" in result.stderr:
+                    print("Make sure esptool is installed! (pip install esptool or sudo pacman -S esptool)\n")
+                else:
+                    print(result.stderr.strip() + "\n")
                 
         print("✅ Successfully retrieved all available ESP32 info!")
             
     except Exception as e:
-        print(f"\n❌ Error running esptool: {e}")
+        print(f"\n❌ Error running command: {e}")
         print("Please ensure you have python and esptool installed (pip install esptool).")
 
 if __name__ == "__main__":

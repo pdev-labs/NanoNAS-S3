@@ -36,13 +36,25 @@ print("1. Normal Erase (Wipes all files, configs, and firmware)")
 print("2. Factory Reset (Erases everything AND flashes a clean bootloader)")
 choice = input("\nEnter your choice (1 or 2): ").strip()
 
+def get_command(module_name):
+    import shutil
+    cmd = [sys.executable, "-m", module_name, "-h"]
+    res = subprocess.run(cmd, capture_output=True)
+    if res.returncode == 0:
+        return [sys.executable, "-m", module_name]
+    if shutil.which(module_name):
+        return [module_name]
+    if shutil.which(f"{module_name}.py"):
+        return [f"{module_name}.py"]
+    return [module_name]
+
 if choice == "2":
     print("\n[1/3] Erasing Entire Flash Memory...")
 else:
     print("\nErasing Entire Flash Memory...")
 
-# Use sys.executable to ensure we use the python environment's esptool (works on Windows/Mac/Linux)
-erase_cmd = [sys.executable, "-m", "esptool", "--port", port, "erase_flash"]
+# Use robust command resolution (works on Windows/Mac/Linux/Termux)
+erase_cmd = get_command("esptool") + ["--port", port, "erase_flash"]
 result = subprocess.run(erase_cmd)
 
 if result.returncode != 0:
