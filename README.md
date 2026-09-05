@@ -55,15 +55,21 @@ Before flashing, you must set up your WiFi credentials securely!
 
 ## 🚀 The Ultimate Python Utilities Guide (Cross-Platform)
 
-We have engineered four incredibly powerful, fully **cross-platform** utility scripts (`build_bin.py`, `flasher.py`, `erase.py`, `info.py`). They are designed to auto-detect your OS and magically run flawlessly on **Windows, macOS, Linux, and Android (Termux)**!
+We have engineered five incredibly powerful, fully **cross-platform** utility scripts (`setup.py`, `build_bin.py`, `flasher.py`, `erase.py`, `info.py`). They are designed to auto-detect your OS and magically run flawlessly on **Windows, macOS, Linux, and Android (Termux)**!
 
-### 1. The Universal Builder (`build_bin.py`)
+### 1. The Interactive Setup Wizard (`setup.py`)
+If you just cloned this repository, run this script first! It interactively prompts you for your WiFi credentials and Admin password, securely generates your `secrets.h` file, and automatically downloads and installs `arduino-cli`, `esptool`, and all necessary C++ libraries for you!
+```bash
+python setup.py
+```
+
+### 2. The Universal Builder (`build_bin.py`)
 A smart compiler that auto-detects your attached Arduino board via `arduino-cli`, extracts its FQBN, and generates a `.bin` file perfectly formatted for OTA updates!
 ```bash
 python build_bin.py
 ```
 
-### 2. The Auto-Flasher (`flasher.py`)
+### 3. The Auto-Flasher (`flasher.py`)
 A blazing-fast deployment script that automatically stages your files, utilizes the `arduino-cli` build cache, and auto-detects your COM/TTY ports. No Arduino IDE required!
 ```bash
 python flasher.py
@@ -71,14 +77,14 @@ python flasher.py
 - Just type the path to your `.ino` file and hit `Tab` for auto-completion!
 - After successfully flashing, it will automatically launch a high-speed Serial Monitor so you can instantly view your boot logs and IP addresses.
 
-### 3. The Diagnostics Tool (`info.py`)
+### 4. The Diagnostics Tool (`info.py`)
 The ultimate hardware and software deep-dive interrogator!
 ```bash
 python info.py
 ```
 Extracts and renders beautiful ASCII tables containing Hardware Specs, Security Posture, and dynamically unpacked Firmware Intel.
 
-### 4. The Nuclear Reset (`erase.py`)
+### 5. The Nuclear Reset (`erase.py`)
 If your ESP32-S3 gets stuck in a boot loop or the partition table gets corrupted, this script rescues it by erasing the flash or pushing a dummy bootloader.
 ```bash
 python erase.py
