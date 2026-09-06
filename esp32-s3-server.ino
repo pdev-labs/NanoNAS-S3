@@ -358,6 +358,7 @@ String getContentType(String filename) {
 
 String sanitizePath(String path) {
   if (!path.startsWith("/")) path = "/" + path;
+  path.replace("..", "");
   return path;
 }
 
@@ -365,7 +366,7 @@ String sanitizePath(String path) {
 class TarResponse : public AsyncAbstractResponse {
 private:
     String _dirPath;
-    File _root;
+    std::vector<File> _dirStack;
     File _currentFile;
     uint8_t _headerBuf[512];
     bool _writingHeader;
@@ -398,7 +399,8 @@ public:
         _dirPath = dirPath;
         _code = 200;
         _contentType = "application/x-tar";
-        _root = getStorage().open(dirPath);
+        File root = getStorage().open(dirPath);
+        if (root) _dirStack.push_back(root);
         _writingHeader = false;
         _finished = false;
         _endPaddingChunks = 2; 
@@ -411,7 +413,10 @@ public:
     }
     
     ~TarResponse() {
-        if(_root) _root.close();
+        while(!_dirStack.empty()) {
+            _dirStack.back().close();
+            _dirStack.pop_back();
+        }
         if(_currentFile) _currentFile.close();
     }
     
@@ -423,8 +428,22 @@ public:
         
         while (written < maxLen && !_finished) {
             if (!_currentFile) {
-                _currentFile = _root.openNextFile();
-                if (!_currentFile) {
+                while (!_dirStack.empty()) {
+                    _currentFile = _dirStack.back().openNextFile();
+                    if (_currentFile) {
+                        if (_currentFile.isDirectory()) {
+                            _dirStack.push_back(_currentFile);
+                            _currentFile = File();
+                            continue;
+                        }
+                        break;
+                    } else {
+                        _dirStack.back().close();
+                        _dirStack.pop_back();
+                    }
+                }
+                
+                if (!_currentFile && _dirStack.empty()) {
                     if (_endPaddingChunks > 0) {
                         size_t toWrite = std::min((size_t)512, maxLen - written);
                         memset(buf + written, 0, toWrite);
@@ -436,10 +455,8 @@ public:
                     }
                     break;
                 }
-                if (_currentFile.isDirectory()) {
-                    _currentFile.close();
-                    continue; 
-                }
+                if (!_currentFile) continue;
+                
                 _writingHeader = true;
                 _fileBytesWritten = 0;
                 writeTarHeader(String(_currentFile.name()), _currentFile.size(), _headerBuf);
@@ -517,6 +534,9 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
+  usb.begin();
+  usbMassStorage.begin(usb);
+
   // Spawn the heavenly RGB Fade on Core 0 so it runs in the background
   // completely independent of the web server (which runs on Core 1)
 #ifdef ENABLE_RGB_FADE
@@ -533,9 +553,15 @@ void setup() {
 
   // Initialize LittleFS
   if (!LittleFS.begin(true)) {
-    Serial.println("An Error has occurred while mounting LittleFS");
+    Serial.println("CRITICAL ERROR: Failed to mount or format LittleFS!");
+    sysState = STATE_ERROR;
+    lastActivityMs = millis();
+    while (true) {
+        delay(1000);
+        Serial.println("SYSTEM HALTED: LittleFS Mount Failure");
+    }
   } else {
-    Serial.println("LittleFS Mounted");
+    Serial.println("LittleFS Mounted Successfully");
     loadUsers();
   }
 
@@ -779,14 +805,37 @@ void setup() {
   // API: Copy File/Folder
   server.on("/api/copy", HTTP_POST, [](AsyncWebServerRequest *request){
     if(!checkAuth(request, true)) return;
+    if(currentJob.state != COPY_IDLE) {
+      return request->send(429, "text/plain", "A copy job is already in progress");
+    }
     if(request->hasParam("from", true) && request->hasParam("to", true)) {
       String fromPath = sanitizePath(request->getParam("from", true)->value());
       String toPath = sanitizePath(request->getParam("to", true)->value());
-      if(copyRecursive(fromPath, toPath)) {
-        request->send(200, "text/plain", "OK");
-      } else {
-        request->send(500, "text/plain", "Copy failed");
+      
+      currentJob.state = COPY_SCANNING;
+      currentJob.srcBase = fromPath;
+      currentJob.destBase = toPath;
+      currentJob.scanDirsSrc.clear();
+      currentJob.scanDirsDest.clear();
+      currentJob.copyFilesSrc.clear();
+      currentJob.copyFilesDest.clear();
+      
+      File f = getStorage().open(fromPath);
+      if(f && f.isDirectory()) {
+         currentJob.scanDirsSrc.push_back(fromPath);
+         currentJob.scanDirsDest.push_back(toPath);
+      } else if (f) {
+         currentJob.copyFilesSrc.push_back(fromPath);
+         currentJob.copyFilesDest.push_back(toPath);
+         currentJob.totalBytesToCopy = f.size();
       }
+      if(f) f.close();
+      
+      currentJob.bytesCopied = 0;
+      currentJob.finished = false;
+      currentJob.success = true;
+      
+      request->send(200, "text/plain", "OK");
     } else {
       request->send(400, "text/plain", "Missing from or to parameter");
     }
@@ -914,6 +963,7 @@ void setup() {
 }
 
 void loop() {
+  processCopyJob();
   dnsServer.processNextRequest();
   
   static unsigned long lastCheck = 0;
