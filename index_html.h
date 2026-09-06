@@ -943,12 +943,17 @@ let currentDir = "/";
         async function saveEditor() {
             let content = document.getElementById('editorContent').value;
             try {
-                let res = await fetch(`/upload_chunk?name=${encodeURIComponent(editingPath)}&append=0`, { 
-                    method: 'POST', body: new Blob([content]) 
+                let tempPath = editingPath + ".tmp";
+                let res = await fetch(`/upload_chunk?name=${encodeURIComponent(tempPath)}&append=0`, {
+                    method: 'POST', body: new Blob([content])
                 });
-                if(res.ok) { closeEditor(); loadFiles(); }
-                else alert("Failed to save.");
-            } catch(e) { alert("Error saving."); }
+                if(res.ok) {
+                    await fetch(`/api/commit_upload?tempPath=${encodeURIComponent(tempPath)}&finalPath=${encodeURIComponent(editingPath)}`, {method: 'POST'});
+                    alert('File saved');
+                    closeEditor();
+                    loadFiles();
+                } else alert('Save failed');
+            } catch(e) { alert('Error saving'); }
         }
 
         // --- Media Player ---
@@ -1215,6 +1220,9 @@ let currentDir = "/";
                 let uploadedBytes = 0;
                 let fullPath = (currentDir === "/" ? "" : currentDir) + "/" + finalName;
 
+                let tempPath = fullPath + ".tmp";
+                let allSuccess = true;
+
                 for (let i = 0; i < totalChunks; i++) {
                     const start = i * chunkSize;
                     const end = Math.min(start + chunkSize, file.size);
@@ -1224,7 +1232,7 @@ let currentDir = "/";
                     let success = false; let retries = 3;
                     while (!success && retries > 0) {
                         try {
-                            const res = await fetch(`/upload_chunk?name=${encodeURIComponent(fullPath)}&append=${append}`, {
+                            const res = await fetch(`/upload_chunk?name=${encodeURIComponent(tempPath)}&append=${append}`, {
                                 method: 'POST', body: chunk
                             });
                             if (res.ok) {
@@ -1235,7 +1243,15 @@ let currentDir = "/";
                             } else { retries--; await new Promise(r => setTimeout(r, 1000)); }
                         } catch (e) { retries--; await new Promise(r => setTimeout(r, 1000)); }
                     }
-                    if (!success) { alert(`Upload failed: ${file.name}`); break; }
+                    if (!success) { 
+                        alert(`Upload failed: ${file.name}`); 
+                        allSuccess = false;
+                        break; 
+                    }
+                }
+                
+                if (allSuccess) {
+                    await fetch(`/api/commit_upload?tempPath=${encodeURIComponent(tempPath)}&finalPath=${encodeURIComponent(fullPath)}`, {method: 'POST'});
                 }
             }
             pText.innerText = 'Upload Complete!';

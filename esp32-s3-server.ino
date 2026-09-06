@@ -7,6 +7,7 @@
 #include "EspUsbHost.h"
 #include <ESPmDNS.h>
 #include <Update.h>
+#include <rom/rtc.h>
 
 // ==========================================
 // CONFIGURATION
@@ -263,6 +264,7 @@ struct CopyJob {
 };
 
 CopyJob currentJob;
+SemaphoreHandle_t copyMutex;
 
 void processCopyJob() {
   if (currentJob.state == COPY_IDLE) return;
@@ -305,6 +307,7 @@ void processCopyJob() {
       if (currentJob.copyFilesSrc.empty()) {
         currentJob.finished = true;
         currentJob.state = COPY_IDLE;
+        xSemaphoreGive(copyMutex);
         return;
       }
       
@@ -321,6 +324,7 @@ void processCopyJob() {
         currentJob.state = COPY_IDLE;
         if (currentJob.currentSrc) currentJob.currentSrc.close();
         if (currentJob.currentDest) currentJob.currentDest.close();
+        xSemaphoreGive(copyMutex);
         return;
       }
     }
@@ -530,9 +534,42 @@ bool deleteRecursive(String path) {
   return success;
 }
 
+void logResetReason() {
+  int reason = rtc_get_reset_reason(0);
+  if (reason != 1) { // 1 = POWERON_RESET
+    File f = LittleFS.open("/crash.log", "a");
+    if (f) {
+      f.printf("Crash detected! Reset reason core 0: %d\n", reason);
+      f.close();
+    }
+  }
+}
+
+void cleanupTempFiles(fs::FS &fs, String path) {
+  File root = fs.open(path);
+  if (!root || !root.isDirectory()) return;
+  File file = root.openNextFile();
+  while (file) {
+    String filePath = String(file.path());
+    bool isDir = file.isDirectory();
+    file.close();
+    if (isDir) {
+      cleanupTempFiles(fs, filePath);
+    } else if (filePath.endsWith(".tmp")) {
+      fs.remove(filePath);
+    }
+    root.rewindDirectory();
+    file = root.openNextFile();
+    if (file && String(file.path()) == filePath) break;
+  }
+  root.close();
+}
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
+
+  copyMutex = xSemaphoreCreateMutex();
 
   usb.begin();
   usbMassStorage.begin(usb);
@@ -563,6 +600,8 @@ void setup() {
   } else {
     Serial.println("LittleFS Mounted Successfully");
     loadUsers();
+    cleanupTempFiles(LittleFS, "/");
+    logResetReason();
   }
 
   // Try connecting to Hotspot first (Station Mode)
@@ -805,7 +844,7 @@ void setup() {
   // API: Copy File/Folder
   server.on("/api/copy", HTTP_POST, [](AsyncWebServerRequest *request){
     if(!checkAuth(request, true)) return;
-    if(currentJob.state != COPY_IDLE) {
+    if(xSemaphoreTake(copyMutex, 0) == pdFALSE) {
       return request->send(429, "text/plain", "A copy job is already in progress");
     }
     if(request->hasParam("from", true) && request->hasParam("to", true)) {
@@ -869,6 +908,23 @@ void setup() {
     }
   });
   
+  // API: Commit Upload
+  server.on("/api/commit_upload", HTTP_POST, [](AsyncWebServerRequest *request){
+    if(!checkAuth(request, true)) return;
+    if(request->hasParam("tempPath", true) && request->hasParam("finalPath", true)) {
+      String tempPath = sanitizePath(request->getParam("tempPath", true)->value());
+      String finalPath = sanitizePath(request->getParam("finalPath", true)->value());
+      if(getStorage().exists(finalPath)) getStorage().remove(finalPath);
+      if(getStorage().rename(tempPath, finalPath)) {
+        request->send(200, "text/plain", "OK");
+      } else {
+        request->send(500, "text/plain", "Commit failed");
+      }
+    } else {
+      request->send(400, "text/plain", "Missing tempPath or finalPath");
+    }
+  });
+
   // Chunked Upload Endpoint
   struct FileContext { File f; };
   server.on("/upload_chunk", HTTP_POST, 
