@@ -477,11 +477,15 @@ const char index_html[] PROGMEM = R"rawliteral(
             padding: 16px;
             border: 1px solid var(--md-sys-color-outline);
             border-radius: 8px;
-            background: var(--md-sys-color-surface);
-            color: var(--md-sys-color-on-surface);
-            font-family: monospace;
+            font-family: 'Fira Code', 'Courier New', Courier, monospace;
             font-size: 14px;
-            resize: vertical;
+            background-color: var(--md-sys-color-surface-container);
+            color: var(--md-sys-color-on-surface);
+            resize: none;
+            outline: none;
+        }
+        #editorContent:focus {
+            border-color: var(--md-sys-color-primary);
         }
 
         /* Login Screen */
@@ -525,17 +529,42 @@ const char index_html[] PROGMEM = R"rawliteral(
             <span class="material-symbols-outlined" style="color:var(--md-sys-color-primary);">dns</span>
             <div class="app-bar-title">NanoNAS S3</div>
             <button class="icon-btn" onclick="openSysInfo()" title="System Info"><span class="material-symbols-outlined">analytics</span></button>
+            <button class="icon-btn" onclick="toggleDashboard()" title="Dashboard"><span class="material-symbols-outlined">dashboard</span></button>
             <button class="icon-btn" onclick="toggleTheme()" title="Toggle Theme"><span class="material-symbols-outlined">dark_mode</span></button>
             <button class="icon-btn" onclick="openSettings()" title="Settings"><span class="material-symbols-outlined">settings</span></button>
             
         </header>
 
         <div class="container">
-            <div class="card" id="storageCard" style="display:none;">
-                <div class="storage-title">Storage Space</div>
-                <div class="storage-val" id="storageText">Loading...</div>
-                <div class="storage-bar-bg">
-                    <div class="storage-bar-fill" id="storageBar" style="width: 0%;"></div>
+            <div id="sysDashboard" class="card" style="display:none; padding:16px; margin-bottom:16px;">
+                <h3 style="margin-bottom:16px; margin-top:0;">System Dashboard</h3>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                    <!-- Storage -->
+                    <div>
+                        <div class="storage-title">Storage Space</div>
+                        <div class="storage-val" id="dashStorageVal" style="font-size:20px;">Loading...</div>
+                        <div class="storage-bar-bg" style="height:6px; margin-top:8px;">
+                            <div class="storage-bar-fill" id="dashStorageBar" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                    <!-- RAM -->
+                    <div>
+                        <div class="storage-title">Free RAM (Heap)</div>
+                        <div class="storage-val" id="dashRamVal" style="font-size:20px;">Loading...</div>
+                        <div class="storage-bar-bg" style="height:6px; margin-top:8px;">
+                            <div class="storage-bar-fill" id="dashRamBar" style="width: 0%; background:var(--md-sys-color-tertiary);"></div>
+                        </div>
+                    </div>
+                    <!-- Temp -->
+                    <div>
+                        <div class="storage-title">CPU Temp</div>
+                        <div class="storage-val" id="dashTempVal" style="font-size:20px;">-- &deg;C</div>
+                    </div>
+                    <!-- Uptime -->
+                    <div>
+                        <div class="storage-title">Uptime</div>
+                        <div class="storage-val" id="dashUptimeVal" style="font-size:20px;">--:--:--</div>
+                    </div>
                 </div>
             </div>
 

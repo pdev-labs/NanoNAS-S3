@@ -622,6 +622,13 @@ void setup() {
     doc["psram_free"] = ESP.getFreePsram();
     doc["wifi_rssi"] = WiFi.RSSI();
     doc["uptime"] = millis() / 1000;
+    doc["fs_total"] = getStorage().totalBytes();
+    doc["fs_used"] = getStorage().usedBytes();
+#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32)
+    doc["temperature"] = temperatureRead();
+#else
+    doc["temperature"] = 0;
+#endif
     
     String response;
     serializeJson(doc, response);
