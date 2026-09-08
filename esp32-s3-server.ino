@@ -730,6 +730,78 @@ void setup() {
     request->send(200, "application/json", response);
   });
 
+  server.on("/api/me", HTTP_GET, [](AsyncWebServerRequest *request){
+    AppUser* u = getAuthenticatedUser(request);
+    if (!u) {
+      request->send(401, "application/json", "{\"error\":\"Unauthorized\"}");
+      return;
+    }
+    String json = "{\"username\":\"" + u->username + "\",\"role\":\"" + u->role + "\"}";
+    request->send(200, "application/json", json);
+  });
+
+  server.on("/api/analytics", HTTP_GET, [](AsyncWebServerRequest *request){
+    if(!checkAuth(request, false)) return;
+    
+    size_t imgSize = 0, vidSize = 0, audSize = 0, docSize = 0, codeSize = 0, otherSize = 0;
+    
+    std::vector<File> dirStack;
+    File root = getStorage().open("/");
+    if (root && root.isDirectory()) {
+      dirStack.push_back(root);
+    }
+    
+    while (!dirStack.empty()) {
+      File file = dirStack.back().openNextFile();
+      if (!file) {
+        dirStack.back().close();
+        dirStack.pop_back();
+        continue;
+      }
+      
+      if (file.isDirectory()) {
+        dirStack.push_back(file);
+        continue;
+      }
+      
+      String name = file.name();
+      size_t s = file.size();
+      file.close();
+      
+      int dotIndex = name.lastIndexOf('.');
+      if (dotIndex > 0) {
+        String ext = name.substring(dotIndex + 1);
+        ext.toLowerCase();
+        if (ext == "jpg" || ext == "jpeg" || ext == "png" || ext == "gif" || ext == "webp" || ext == "bmp" || ext == "svg") {
+          imgSize += s;
+        } else if (ext == "mp4" || ext == "webm" || ext == "avi" || ext == "mkv" || ext == "mov") {
+          vidSize += s;
+        } else if (ext == "mp3" || ext == "wav" || ext == "ogg" || ext == "flac") {
+          audSize += s;
+        } else if (ext == "pdf" || ext == "doc" || ext == "docx" || ext == "xls" || ext == "xlsx" || ext == "ppt" || ext == "pptx") {
+          docSize += s;
+        } else if (ext == "txt" || ext == "csv" || ext == "json" || ext == "ino" || ext == "js" || ext == "css" || ext == "html" || ext == "py" || ext == "md" || ext == "log" || ext == "cpp" || ext == "h" || ext == "c") {
+          codeSize += s;
+        } else {
+          otherSize += s;
+        }
+      } else {
+        otherSize += s;
+      }
+    }
+    
+    String json = "{";
+    json += "\"images\":" + String(imgSize) + ",";
+    json += "\"videos\":" + String(vidSize) + ",";
+    json += "\"audio\":" + String(audSize) + ",";
+    json += "\"docs\":" + String(docSize) + ",";
+    json += "\"code\":" + String(codeSize) + ",";
+    json += "\"others\":" + String(otherSize);
+    json += "}";
+    
+    request->send(200, "application/json", json);
+  });
+
   server.on("/api/users", HTTP_GET, [](AsyncWebServerRequest *request){
     if(!checkAuth(request, true)) return;
     String json;

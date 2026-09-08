@@ -519,6 +519,72 @@ const char index_html[] PROGMEM = R"rawliteral(
         .input-field:focus { outline: 2px solid var(--md-sys-color-primary); border-color: transparent; }
     
         .file-item.drag-hover { background-color: var(--md-sys-color-primary-container); border: 2px dashed var(--md-sys-color-primary); }
+
+        /* Grid View Modifiers */
+        .file-list.grid-view {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 16px;
+            padding: 16px;
+            background: transparent;
+            box-shadow: none;
+        }
+        .file-list.grid-view .file-item {
+            flex-direction: column;
+            background-color: var(--md-sys-color-surface);
+            border-radius: 12px;
+            box-shadow: var(--elevation-1);
+            padding: 16px;
+            border-bottom: none;
+            position: relative;
+            align-items: center;
+            text-align: center;
+        }
+        .file-list.grid-view .checkbox-container {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            margin: 0;
+            z-index: 10;
+        }
+        .file-list.grid-view .file-icon {
+            width: 80px;
+            height: 80px;
+            margin-right: 0;
+            margin-bottom: 12px;
+        }
+        .file-list.grid-view .file-info {
+            align-items: center;
+        }
+        .file-list.grid-view .actions {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            margin-left: 0;
+            opacity: 0;
+            transition: opacity 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .file-list.grid-view .file-item:hover .actions {
+            opacity: 1;
+        }
+        .file-list.grid-view .actions .btn {
+            background: var(--md-sys-color-surface-variant);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            justify-content: center;
+        }
+        .file-list.grid-view .actions .btn span {
+            display: none; /* hide text */
+        }
+        .file-list.grid-view .actions .btn .material-symbols-outlined {
+            display: block; /* show icon */
+            font-size: 16px;
+        }
 </style>
 </head>
 <body class="dark-theme">
@@ -560,11 +626,24 @@ const char index_html[] PROGMEM = R"rawliteral(
                         <div class="storage-title">CPU Temp</div>
                         <div class="storage-val" id="dashTempVal" style="font-size:20px;">-- &deg;C</div>
                     </div>
+
                     <!-- Uptime -->
                     <div>
                         <div class="storage-title">Uptime</div>
                         <div class="storage-val" id="dashUptimeVal" style="font-size:20px;">--:--:--</div>
                     </div>
+                    
+                    <!-- Storage Analytics -->
+                    <div style="grid-column: 1 / -1; margin-top: 16px;">
+                        <div class="storage-title">Storage Breakdown</div>
+                        <div class="storage-bar-bg" style="height:12px; margin-top:8px; display:flex; border-radius:6px; background:var(--md-sys-color-surface-variant); overflow:hidden;" id="analyticsBar">
+                            <!-- segments inserted here -->
+                        </div>
+                        <div id="analyticsLegend" style="display:flex; gap:16px; margin-top:8px; font-size:12px; color:var(--md-sys-color-on-surface-variant); flex-wrap:wrap;">
+                            Loading analytics...
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -582,10 +661,15 @@ const char index_html[] PROGMEM = R"rawliteral(
                 </div>
             </div>
 
-                <div class="breadcrumbs" id="breadcrumb" style="margin-bottom:0;"></div>
-                <button id="paste-btn" class="btn" style="display:none; gap:4px; border-radius:100px; padding:0 16px; background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);" onclick="pasteFile()">
-                    <span class="material-symbols-outlined">content_paste</span> Paste Here
-                </button>
+                                <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
+                    <div class="breadcrumbs" id="breadcrumb" style="margin-bottom:0; flex-grow:1;"></div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="icon-btn" onclick="toggleViewMode()" title="Toggle View"><span class="material-symbols-outlined" id="viewModeIcon">grid_view</span></button>
+                        <button id="paste-btn" class="btn" style="display:none; gap:4px; border-radius:100px; padding:0 16px; background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);" onclick="pasteFile()">
+                            <span class="material-symbols-outlined">content_paste</span> Paste
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <ul class="file-list" id="fileList"></ul>
@@ -764,10 +848,100 @@ const char index_html[] PROGMEM = R"rawliteral(
 
 let currentDir = "/";
 
+        let currentUserRole = 'admin';
+        let viewMode = localStorage.getItem('viewMode') || 'list';
+        
+        async function loadMe() {
+            try {
+                let res = await fetch('/api/me');
+                if (res.ok) {
+                    let data = await res.json();
+                    currentUserRole = data.role;
+                } else {
+                    currentUserRole = 'guest';
+                }
+            } catch (e) {
+                currentUserRole = 'guest';
+            }
+            applyPermissions();
+            loadFiles();
+        }
+
+        function applyPermissions() {
+            if (currentUserRole !== 'admin') {
+                let fab = document.querySelector('.fab');
+                if (fab) fab.style.display = 'none';
+                
+                let actionBtns = document.querySelectorAll('#actionBar .btn');
+                actionBtns.forEach(btn => btn.style.display = 'none');
+                
+                // Keep 'close' button in action bar which is an .icon-btn
+            }
+        }
+
+        function toggleViewMode() {
+            viewMode = viewMode === 'list' ? 'grid' : 'list';
+            localStorage.setItem('viewMode', viewMode);
+            applyViewMode();
+        }
+        function applyViewMode() {
+            let list = document.getElementById('fileList');
+            let icon = document.getElementById('viewModeIcon');
+            if (!icon) return;
+            if (viewMode === 'grid') {
+                list.classList.add('grid-view');
+                icon.innerText = 'view_list';
+            } else {
+                list.classList.remove('grid-view');
+                icon.innerText = 'grid_view';
+            }
+        }
+
+        async function loadAnalytics(totalBytes) {
+            try {
+                let res = await fetch('/api/analytics');
+                if(!res.ok) return;
+                let data = await res.json();
+                
+                let bar = document.getElementById('analyticsBar');
+                let legend = document.getElementById('analyticsLegend');
+                
+                let colors = {
+                    images: '#4CAF50', videos: '#2196F3', audio: '#9C27B0',
+                    docs: '#FF9800', code: '#F44336', others: '#9E9E9E'
+                };
+                let labels = {
+                    images: 'Images', videos: 'Videos', audio: 'Audio',
+                    docs: 'Documents', code: 'Code', others: 'Other'
+                };
+                
+                let barHtml = '';
+                let legendHtml = '';
+                let used = data.images + data.videos + data.audio + data.docs + data.code + data.others;
+                
+                for (let key in data) {
+                    if (data[key] > 0) {
+                        let pct = (data[key] / totalBytes) * 100;
+                        barHtml += `<div style="height:100%; width:${pct}%; background:${colors[key]};" title="${labels[key]}: ${formatBytes(data[key])}"></div>`;
+                        legendHtml += `<div style="display:flex; align-items:center; gap:4px;"><div style="width:12px; height:12px; border-radius:50%; background:${colors[key]};"></div> ${labels[key]} (${formatBytes(data[key])})</div>`;
+                    }
+                }
+                if (totalBytes > used) {
+                    let freePct = ((totalBytes - used) / totalBytes) * 100;
+                    barHtml += `<div style="height:100%; width:${freePct}%; background:transparent;" title="Free Space"></div>`;
+                }
+                
+                if (bar) bar.innerHTML = barHtml;
+                if (legend) legend.innerHTML = legendHtml;
+            } catch(e) {}
+        }
+
+
         let selectedItems = new Set();
 
-        loadFiles();
+        loadMe();
         loadStats();
+        applyViewMode();
 
         // --- File System ---
         function formatBytes(bytes) { 
@@ -784,9 +958,12 @@ let currentDir = "/";
                 let data = await res.json();
                 document.getElementById('storageCard').style.display = 'block';
                 document.getElementById('storageText').innerText = `${formatBytes(data.used)} / ${formatBytes(data.total)}`;
+
                 if(data.total > 0) {
                     document.getElementById('storageBar').style.width = (data.used / data.total * 100) + '%';
+                    loadAnalytics(data.total);
                 }
+
             } catch(e) {}
         }
 
@@ -853,48 +1030,84 @@ let currentDir = "/";
                         iconHtml = `<div class="file-icon"><span class="material-symbols-outlined">${getIcon(file.name, file.isDir)}</span></div>`;
                     }
 
-                    if (file.isDir) {
-                        li.setAttribute('draggable', 'true');
-                        li.setAttribute('ondragstart', `dragStart(event, '${fullPath}')`);
-                        li.setAttribute('ondragover', `dragOver(event)`);
-                        li.setAttribute('ondragleave', `dragLeave(event)`);
-                        li.setAttribute('ondrop', `dropOnFolder(event, '${fullPath}')`);
-                        li.innerHTML = `
+                    let actionsHtml = '';
+                    let checkboxHtml = '';
+                    if (currentUserRole === 'admin') {
+                        checkboxHtml = `
                             <div class="checkbox-container" style="display:flex; align-items:center; margin-right:12px;">
                                 <input type="checkbox" onchange="toggleSelection('${fullPath}', this.checked)" ${selectedItems.has(fullPath) ? 'checked' : ''}>
                             </div>
+                        `;
+                        if (file.isDir) {
+                            actionsHtml = `
+                                <div class="actions">
+                                    <button class="btn btn-text" onclick="cutFile('${fullPath}')" title="Cut"><span class="material-symbols-outlined">content_cut</span></button>
+                                    <button class="btn btn-text" onclick="copyFile('${fullPath}')" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
+                                    <a href="/download_dir?dir=${encodeURIComponent(fullPath)}" class="btn btn-text" title="Download ZIP"><span class="material-symbols-outlined">archive</span></a>
+                                    <button class="btn btn-error" onclick="deleteFile('${fullPath}', true)" title="Delete Folder"><span class="material-symbols-outlined">delete</span></button>
+                                </div>
+                            `;
+                        } else {
+                            let playBtn = isPlayable ? `<button class="btn btn-text" onclick="playMedia('${fullPath}', '${file.name}')" title="View/Play"><span class="material-symbols-outlined">${isImg||isTxt?'visibility':'play_arrow'}</span></button>` : '';
+                            actionsHtml = `
+                                <div class="actions">
+                                    ${playBtn}
+                                    <button class="btn btn-text" onclick="cutFile('${fullPath}')" title="Cut"><span class="material-symbols-outlined">content_cut</span></button>
+                                    <button class="btn btn-text" onclick="copyFile('${fullPath}')" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
+                                    <a href="/download?file=${encodeURIComponent(fullPath)}" class="btn btn-text" download title="Download"><span class="material-symbols-outlined">download</span></a>
+                                    <button class="btn btn-error" onclick="deleteFile('${fullPath}', false)" title="Delete"><span class="material-symbols-outlined">delete</span></button>
+                                </div>
+                            `;
+                        }
+                    } else {
+                        // Guest Role
+                        if (file.isDir) {
+                            actionsHtml = `
+                                <div class="actions">
+                                    <a href="/download_dir?dir=${encodeURIComponent(fullPath)}" class="btn btn-text" title="Download ZIP"><span class="material-symbols-outlined">archive</span></a>
+                                </div>
+                            `;
+                        } else {
+                            let playBtn = isPlayable ? `<button class="btn btn-text" onclick="playMedia('${fullPath}', '${file.name}')" title="View/Play"><span class="material-symbols-outlined">${isImg||isTxt?'visibility':'play_arrow'}</span></button>` : '';
+                            actionsHtml = `
+                                <div class="actions">
+                                    ${playBtn}
+                                    <a href="/download?file=${encodeURIComponent(fullPath)}" class="btn btn-text" download title="Download"><span class="material-symbols-outlined">download</span></a>
+                                </div>
+                            `;
+                        }
+                    }
+
+                    if (file.isDir) {
+                        if (currentUserRole === 'admin') {
+                            li.setAttribute('draggable', 'true');
+                            li.setAttribute('ondragstart', `dragStart(event, '${fullPath}')`);
+                            li.setAttribute('ondragover', `dragOver(event)`);
+                            li.setAttribute('ondragleave', `dragLeave(event)`);
+                            li.setAttribute('ondrop', `dropOnFolder(event, '${fullPath}')`);
+                        }
+                        li.innerHTML = `
+                            ${checkboxHtml}
                             ${iconHtml}
                             <div class="file-info" onclick="changeDir('${fullPath}')" style="cursor: pointer;">
                                 <span class="file-name">${file.name}</span>
                                 <span class="file-size">-</span>
                             </div>
-                            <div class="actions">
-                                <button class="btn btn-text" onclick="cutFile('${fullPath}')" title="Cut"><span class="material-symbols-outlined">content_cut</span></button>
-                                <button class="btn btn-text" onclick="copyFile('${fullPath}')" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
-                                <a href="/download_dir?dir=${encodeURIComponent(fullPath)}" class="btn btn-text" title="Download ZIP"><span class="material-symbols-outlined">archive</span></a>
-                                <button class="btn btn-error" onclick="deleteFile('${fullPath}', true)" title="Delete Folder"><span class="material-symbols-outlined">delete</span></button>
-                            </div>
+                            ${actionsHtml}
                         `;
                     } else {
-                        li.setAttribute('draggable', 'true');
-                        li.setAttribute('ondragstart', `dragStart(event, '${fullPath}')`);
-                        let playBtn = isPlayable ? `<button class="btn btn-text" onclick="playMedia('${fullPath}', '${file.name}')" title="View/Play"><span class="material-symbols-outlined">${isImg||isTxt?'visibility':'play_arrow'}</span></button>` : '';
+                        if (currentUserRole === 'admin') {
+                            li.setAttribute('draggable', 'true');
+                            li.setAttribute('ondragstart', `dragStart(event, '${fullPath}')`);
+                        }
                         li.innerHTML = `
-                            <div class="checkbox-container" style="display:flex; align-items:center; margin-right:12px;">
-                                <input type="checkbox" onchange="toggleSelection('${fullPath}', this.checked)" ${selectedItems.has(fullPath) ? 'checked' : ''}>
-                            </div>
+                            ${checkboxHtml}
                             ${iconHtml}
                             <div class="file-info" ${isPlayable ? `onclick="playMedia('${fullPath}', '${file.name}')" style="cursor: pointer;"` : ''}>
                                 <span class="file-name">${file.name}</span>
                                 <span class="file-size">${formatBytes(file.size)}</span>
                             </div>
-                            <div class="actions">
-                                ${playBtn}
-                                <button class="btn btn-text" onclick="cutFile('${fullPath}')" title="Cut"><span class="material-symbols-outlined">content_cut</span></button>
-                                <button class="btn btn-text" onclick="copyFile('${fullPath}')" title="Copy"><span class="material-symbols-outlined">content_copy</span></button>
-                                <a href="/download?file=${encodeURIComponent(fullPath)}" class="btn btn-text" download title="Download"><span class="material-symbols-outlined">download</span></a>
-                                <button class="btn btn-error" onclick="deleteFile('${fullPath}', false)" title="Delete"><span class="material-symbols-outlined">delete</span></button>
-                            </div>
+                            ${actionsHtml}
                         `;
                     }
                     fileListEl.appendChild(li);
