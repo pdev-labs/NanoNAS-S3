@@ -651,7 +651,8 @@ void setup() {
   // Root Page (Captive Portal fallback included)
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     if(!checkAuth(request, false)) return;
-    request->send(200, "text/html", index_html);
+    AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", (const uint8_t*)index_html, sizeof(index_html) - 1);
+    request->send(response);
   });
 
   // Captive Portal Redirect for Android/iOS
