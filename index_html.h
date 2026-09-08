@@ -697,6 +697,7 @@ const char index_html[] PROGMEM = R"rawliteral(
         </div>
 
         <input type="file" id="fileInput" style="display: none;" multiple onchange="handleFiles(this.files)">
+        <input type="file" id="folderInput" style="display: none;" webkitdirectory multiple onchange="handleFiles(this.files)">
 
     </div>
 
