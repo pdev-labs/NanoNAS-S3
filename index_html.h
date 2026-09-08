@@ -793,7 +793,7 @@ let currentDir = "/";
         let mediaList = [];
         let currentMediaIndex = -1;
 
-        const textExts = ['txt', 'csv', 'json', 'ino', 'js', 'css', 'html', 'py'];
+        const textExts = ['txt', 'csv', 'json', 'ino', 'js', 'css', 'html', 'py', 'log'];
         const imgExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
         const audioExts = ['mp3', 'wav', 'ogg'];
         const vidExts = ['mp4', 'webm'];
