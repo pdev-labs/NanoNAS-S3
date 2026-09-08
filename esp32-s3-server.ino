@@ -651,7 +651,14 @@ void setup() {
   // Root Page (Captive Portal fallback included)
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     if(!checkAuth(request, false)) return;
-    AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", (const uint8_t*)index_html, sizeof(index_html) - 1);
+    AsyncWebServerResponse *response = request->beginChunkedResponse("text/html", [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+      size_t totalLen = sizeof(index_html) - 1;
+      if (index >= totalLen) return 0;
+      size_t chunkLen = totalLen - index;
+      if (chunkLen > maxLen) chunkLen = maxLen;
+      memcpy(buffer, index_html + index, chunkLen);
+      return chunkLen;
+    });
     request->send(response);
   });
 
