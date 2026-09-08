@@ -53,3 +53,13 @@ To give access to friends or family without giving them delete/modify privileges
 ## License
 
 This project is open-source and available under the standard MIT License.
+
+## Utility Scripts
+This project includes several useful Python scripts to help you manage your ESP32-S3 NAS:
+
+- **`flasher.py`**: The primary interactive script for building and flashing your firmware. Automatically detects the COM port and prompts for PSRAM and Flash size options.
+- **`build_bin.py`**: A utility for compiling the `.ino` sketch into a standalone `.bin` file without flashing it immediately. Useful for generating OTA updates.
+- **`ota_update.py`**: A script to wirelessly flash a compiled `.bin` firmware file to your ESP32 over the network (Over-The-Air) without plugging it into USB.
+- **`erase.py`**: Completely erases the entire flash memory on the ESP32. Useful if you want to wipe the filesystem or if the ESP32 is caught in a boot loop.
+- **`info.py`**: Connects to your ESP32 via USB and displays detailed hardware information (MAC address, chip features, flash size, etc.).
+- **`setup.py`**: Used for initial environment setup (installing python dependencies like `esptool` and `pyserial`).
