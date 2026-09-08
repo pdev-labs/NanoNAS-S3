@@ -855,10 +855,10 @@ void setup() {
     if(xSemaphoreTake(copyMutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
       DynamicJsonDocument doc(512);
       doc["scanning"] = (currentJob.state == COPY_SCANNING);
-      doc["done"] = currentJob.finished;
+      doc["finished"] = currentJob.finished;
       doc["success"] = currentJob.success;
-      doc["bytesCopied"] = currentJob.bytesCopied;
-      doc["totalBytes"] = currentJob.totalBytesToCopy;
+      doc["copied"] = currentJob.bytesCopied;
+      doc["total"] = currentJob.totalBytesToCopy;
       
       String res;
       serializeJson(doc, res);
