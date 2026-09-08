@@ -177,7 +177,7 @@ spiffs,   data, spiffs,  0x410000,0x3E0000,
             sys.exit(1)
             
         # Upload using the folder
-                upload_cmd = ["arduino-cli", "upload", "-p", port, "--fqbn", fqbn, sketch_dir]
+        upload_cmd = ["arduino-cli", "upload", "-p", port, "--fqbn", fqbn, sketch_dir]
         print(f"\nRunning: {' '.join(upload_cmd)}")
         result = subprocess.run(upload_cmd)
         
