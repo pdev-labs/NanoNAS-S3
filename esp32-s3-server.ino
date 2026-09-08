@@ -1,4 +1,7 @@
 #include <WiFi.h>
+#include <WiFiMulti.h>
+
+WiFiMulti wifiMulti;
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
@@ -112,8 +115,6 @@ fs::FS& getStorage() {
 
 const char* ap_ssid = "NanoNAS";
 const char* ap_pass = "nanopass";
-const char* sta_ssid = SECRET_WIFI_SSID;
-const char* sta_pass = SECRET_WIFI_PASSWORD;
 
 
 AsyncWebServer server(80);
