@@ -111,17 +111,62 @@ def main():
             print(f"[INFO] Staged {len(copied)} file(s) to: {sketch_dir}")
         
         # Compile using the folder (not the file)
-                psram_ans = input("\n[?] Enable PSRAM? (y/n) [default: y]: ").strip().lower()
-        if psram_ans == 'n':
-            fqbn = "esp32:esp32:esp32s3"
-        else:
+                # PSRAM Selection
+        psram_ans = input("\n[?] Enable PSRAM? (y/n) [default: y]: ").strip().lower()
+        psram_flag = ""
+        if psram_ans != 'n':
             psram_type = input("[?] PSRAM Type: 1) OPI (usually 8MB) or 2) QSPI (usually 2MB) [default: 1]: ").strip()
             if psram_type == '2':
-                fqbn = "esp32:esp32:esp32s3:PSRAM=enabled"
+                psram_flag = "PSRAM=enabled"
             else:
-                fqbn = "esp32:esp32:esp32s3:PSRAM=opi"
+                psram_flag = "PSRAM=opi"
                 
-        print(f"[INFO] Using FQBN: {fqbn}\n")
+        # Flash Size Selection
+        flash_ans = input("\n[?] Flash Size: 1) 4MB, 2) 8MB, 3) 16MB [default: 1]: ").strip()
+        flash_flag = ""
+        part_scheme = ""
+        
+        custom_partitions = None
+        if flash_ans == '3':
+            flash_flag = "FlashSize=16M"
+            part_scheme = "PartitionScheme=custom"
+            custom_partitions = """# Name,   Type, SubType, Offset,  Size, Flags
+nvs,      data, nvs,     0x9000,  0x5000,
+otadata,  data, ota,     0xe000,  0x2000,
+app0,     app,  ota_0,   0x10000, 0x300000,
+app1,     app,  ota_1,   0x310000,0x300000,
+spiffs,   data, spiffs,  0x610000,0x9E0000,
+"""
+        elif flash_ans == '2':
+            flash_flag = "FlashSize=8M"
+            part_scheme = "PartitionScheme=custom"
+            custom_partitions = """# Name,   Type, SubType, Offset,  Size, Flags
+nvs,      data, nvs,     0x9000,  0x5000,
+otadata,  data, ota,     0xe000,  0x2000,
+app0,     app,  ota_0,   0x10000, 0x200000,
+app1,     app,  ota_1,   0x210000,0x200000,
+spiffs,   data, spiffs,  0x410000,0x3E0000,
+"""
+        
+        # Build FQBN options
+        opts = []
+        if psram_flag: opts.append(psram_flag)
+        if flash_flag: opts.append(flash_flag)
+        if part_scheme: opts.append(part_scheme)
+        
+        fqbn = "esp32:esp32:esp32s3"
+        if opts:
+            fqbn += ":" + ",".join(opts)
+            
+        print(f"\n[INFO] Using FQBN: {fqbn}")
+        
+        # Write partitions.csv to the sketch directory if custom
+        if custom_partitions:
+            part_path = os.path.join(sketch_dir, "partitions.csv")
+            with open(part_path, "w") as pf:
+                pf.write(custom_partitions)
+            print(f"[INFO] Generated custom partitions.csv for maximum NAS storage in {sketch_dir}")
+                
         compile_cmd = ["arduino-cli", "compile", "--fqbn", fqbn, sketch_dir]
         print(f"Running: {' '.join(compile_cmd)}")
         result = subprocess.run(compile_cmd)
