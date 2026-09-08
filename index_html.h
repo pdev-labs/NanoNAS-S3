@@ -4,7 +4,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-width=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NanoNAS S3</title>
     <!-- Material Design Fonts and Icons (Async Loading for Offline AP Mode) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
@@ -585,6 +585,61 @@ const char index_html[] PROGMEM = R"rawliteral(
             display: block; /* show icon */
             font-size: 16px;
         }
+
+        /* Mobile Responsive Adjustments */
+        @media (max-width: 600px) {
+            .container {
+                padding: 12px;
+            }
+            .app-bar {
+                padding: 0 12px;
+            }
+            .app-bar-title {
+                font-size: 18px;
+                display: none; /* Hide title on very small screens to fit icons */
+            }
+            .modal-content {
+                padding: 16px;
+                border-radius: 16px;
+            }
+            
+            /* List View Mobile Tweaks */
+            .file-list:not(.grid-view) .file-item {
+                flex-wrap: wrap;
+            }
+            .file-list:not(.grid-view) .file-info {
+                width: calc(100% - 100px); /* Leave room for icon and checkbox */
+            }
+            .file-list:not(.grid-view) .actions {
+                width: 100%;
+                margin-left: 0;
+                margin-top: 12px;
+                justify-content: flex-end;
+                padding-top: 12px;
+                border-top: 1px dashed var(--md-sys-color-surface-variant);
+            }
+            
+            /* Settings grid */
+            #sysDashboard > div > div {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .fab {
+                bottom: 16px;
+                right: 16px;
+            }
+            .fab-menu {
+                right: 16px;
+                bottom: 80px;
+            }
+            
+            /* Login screen */
+            .login-card {
+                padding: 24px 16px;
+                width: 90%;
+            }
+        }
+
 </style>
 </head>
 <body class="dark-theme">
