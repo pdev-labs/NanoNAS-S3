@@ -849,6 +849,30 @@ void setup() {
 
   // Delete File/Folder
 
+  // API: Copy Status
+  server.on("/api/copy_status", HTTP_GET, [](AsyncWebServerRequest *request){
+    if(!checkAuth(request, true)) return;
+    if(xSemaphoreTake(copyMutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
+      DynamicJsonDocument doc(512);
+      doc["scanning"] = (currentJob.state == COPY_SCANNING);
+      doc["done"] = currentJob.finished;
+      doc["success"] = currentJob.success;
+      doc["bytesCopied"] = currentJob.bytesCopied;
+      doc["totalBytes"] = currentJob.totalBytesToCopy;
+      
+      String res;
+      serializeJson(doc, res);
+      request->send(200, "application/json", res);
+      
+      if(currentJob.finished) {
+        currentJob.state = COPY_IDLE;
+      }
+      xSemaphoreGive(copyMutex);
+    } else {
+      request->send(503, "text/plain", "Busy");
+    }
+  });
+
   // API: Copy File/Folder
   server.on("/api/copy", HTTP_POST, [](AsyncWebServerRequest *request){
     if(!checkAuth(request, true)) return;
