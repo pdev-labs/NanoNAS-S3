@@ -338,6 +338,8 @@ void processCopyJob() {
     } else {
       currentJob.currentSrc.close();
       currentJob.currentDest.close();
+      currentJob.currentSrc = fs::File();
+      currentJob.currentDest = fs::File();
     }
     return; // Yield to loop
   }
