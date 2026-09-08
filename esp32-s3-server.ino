@@ -919,9 +919,9 @@ void setup() {
   // API: Commit Upload
   server.on("/api/commit_upload", HTTP_POST, [](AsyncWebServerRequest *request){
     if(!checkAuth(request, true)) return;
-    if(request->hasParam("tempPath", true) && request->hasParam("finalPath", true)) {
-      String tempPath = sanitizePath(request->getParam("tempPath", true)->value());
-      String finalPath = sanitizePath(request->getParam("finalPath", true)->value());
+    if(request->hasParam("tempPath") && request->hasParam("finalPath")) {
+      String tempPath = sanitizePath(request->getParam("tempPath")->value());
+      String finalPath = sanitizePath(request->getParam("finalPath")->value());
       if(getStorage().exists(finalPath)) getStorage().remove(finalPath);
       if(getStorage().rename(tempPath, finalPath)) {
         request->send(200, "text/plain", "OK");
