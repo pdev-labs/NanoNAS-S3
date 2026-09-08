@@ -1096,18 +1096,36 @@ let currentDir = "/";
                     
                     if (res.ok && action === 'copy') {
                         let finished = false;
+                        let stuckAt100Count = 0;
                         while (!finished) {
                             await new Promise(r => setTimeout(r, 1000));
-                            let statRes = await fetch('/api/copy_status');
-                            if (statRes.ok) {
-                                let status = await statRes.json();
-                                if (status.scanning) {
-                                    btn.innerHTML = `<span class="material-symbols-outlined">pending</span> Scanning ${i+1}/${arr.length}...`;
-                                } else {
-                                    let pct = status.total > 0 ? Math.round((status.copied / status.total) * 100) : 100;
-                                    btn.innerHTML = `<span class="material-symbols-outlined">pending</span> Pasting ${i+1}/${arr.length} (${pct}%)...`;
+                            try {
+                                let statRes = await fetch('/api/copy_status');
+                                if (statRes.ok) {
+                                    let status = await statRes.json();
+                                    let pct = 0;
+                                    if (status.scanning) {
+                                        btn.innerHTML = `<span class="material-symbols-outlined">pending</span> Scanning ${i+1}/${arr.length}...`;
+                                    } else {
+                                        pct = status.total > 0 ? Math.round((status.copied / status.total) * 100) : 100;
+                                        btn.innerHTML = `<span class="material-symbols-outlined">pending</span> Pasting ${i+1}/${arr.length} (${pct}%)...`;
+                                    }
+                                    
+                                    finished = status.finished;
+                                    
+                                    if (!finished && pct === 100) {
+                                        stuckAt100Count++;
+                                        if (stuckAt100Count > 3) {
+                                            console.warn("Failsafe: Breaking loop as progress has been 100% for 3 seconds");
+                                            finished = true; // force break
+                                        }
+                                    } else {
+                                        stuckAt100Count = 0;
+                                    }
                                 }
-                                finished = status.finished;
+                            } catch(err) {
+                                console.error("Poll error:", err);
+                                // don't break, keep trying
                             }
                         }
                     } else if (!res.ok) {

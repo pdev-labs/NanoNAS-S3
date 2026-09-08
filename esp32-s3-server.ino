@@ -571,7 +571,8 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  copyMutex = xSemaphoreCreateMutex();
+  copyMutex = xSemaphoreCreateBinary();
+  xSemaphoreGive(copyMutex);
 
   usb.begin();
   usbMassStorage.begin(usb);
