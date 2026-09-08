@@ -375,10 +375,11 @@ private:
     std::vector<File> _dirStack;
     File _currentFile;
     uint8_t _headerBuf[512];
-    bool _writingHeader;
     bool _finished;
-    int _endPaddingChunks;
+    int _endPaddingBytes;
+    size_t _headerBytesWritten;
     size_t _fileBytesWritten;
+    size_t _paddingBytesLeft;
 
     void writeTarHeader(String filename, size_t filesize, uint8_t* header) {
         memset(header, 0, 512);
@@ -407,10 +408,11 @@ public:
         _contentType = "application/x-tar";
         File root = getStorage().open(dirPath);
         if (root) _dirStack.push_back(root);
-        _writingHeader = false;
         _finished = false;
-        _endPaddingChunks = 2; 
+        _endPaddingBytes = 1024;
+        _headerBytesWritten = 512; // Initially set to max so it triggers find
         _fileBytesWritten = 0;
+        _paddingBytesLeft = 0;
         
         String tarName = dirPath;
         if (tarName.lastIndexOf('/') != -1) tarName = tarName.substring(tarName.lastIndexOf('/') + 1);
@@ -433,7 +435,8 @@ public:
         size_t written = 0;
         
         while (written < maxLen && !_finished) {
-            if (!_currentFile) {
+            // Find next file if needed
+            if (!_currentFile && _headerBytesWritten == 512 && _paddingBytesLeft == 0) {
                 while (!_dirStack.empty()) {
                     _currentFile = _dirStack.back().openNextFile();
                     if (_currentFile) {
@@ -450,46 +453,55 @@ public:
                 }
                 
                 if (!_currentFile && _dirStack.empty()) {
-                    if (_endPaddingChunks > 0) {
-                        size_t toWrite = std::min((size_t)512, maxLen - written);
+                    // Write end padding
+                    if (_endPaddingBytes > 0) {
+                        size_t toWrite = std::min((size_t)_endPaddingBytes, maxLen - written);
                         memset(buf + written, 0, toWrite);
                         written += toWrite;
-                        _endPaddingChunks--;
-                        if (_endPaddingChunks == 0) _finished = true;
+                        _endPaddingBytes -= toWrite;
+                        if (_endPaddingBytes == 0) _finished = true;
                     } else {
                         _finished = true;
                     }
                     break;
                 }
+                
                 if (!_currentFile) continue;
                 
-                _writingHeader = true;
+                // Init new file state
+                _headerBytesWritten = 0;
                 _fileBytesWritten = 0;
+                _paddingBytesLeft = 512 - (_currentFile.size() % 512);
+                if (_paddingBytesLeft == 512) _paddingBytesLeft = 0;
                 writeTarHeader(String(_currentFile.name()), _currentFile.size(), _headerBuf);
             }
             
-            if (_writingHeader) {
-                size_t toWrite = std::min((size_t)512, maxLen - written);
-                memcpy(buf + written, _headerBuf, toWrite);
+            // Write Header
+            if (_headerBytesWritten < 512) {
+                size_t toWrite = std::min((size_t)(512 - _headerBytesWritten), maxLen - written);
+                memcpy(buf + written, _headerBuf + _headerBytesWritten, toWrite);
                 written += toWrite;
-                _writingHeader = false; 
-            } else {
+                _headerBytesWritten += toWrite;
+            } 
+            // Write Data
+            else if (_fileBytesWritten < _currentFile.size()) {
                 size_t toRead = std::min((size_t)(maxLen - written), (size_t)(_currentFile.size() - _fileBytesWritten));
                 if (toRead > 0) {
                     size_t bytesRead = _currentFile.read(buf + written, toRead);
                     written += bytesRead;
                     _fileBytesWritten += bytesRead;
                 }
-                
-                if (_fileBytesWritten >= _currentFile.size()) {
-                    size_t padding = 512 - (_currentFile.size() % 512);
-                    if (padding == 512) padding = 0;
-                    if (padding > 0 && maxLen - written >= padding) {
-                        memset(buf + written, 0, padding);
-                        written += padding;
-                    }
-                    _currentFile.close();
-                }
+            } 
+            // Write Padding & Close
+            else if (_paddingBytesLeft > 0) {
+                size_t toWrite = std::min(_paddingBytesLeft, maxLen - written);
+                memset(buf + written, 0, toWrite);
+                written += toWrite;
+                _paddingBytesLeft -= toWrite;
+            } 
+            else {
+                _currentFile.close();
+                _currentFile = File(); // Trigger finding next file
             }
         }
         return written;
