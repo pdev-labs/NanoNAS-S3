@@ -406,6 +406,8 @@ public:
         _dirPath = dirPath;
         _code = 200;
         _contentType = "application/x-tar";
+        _sendContentLength = false;
+        _chunked = true;
         File root = getStorage().open(dirPath);
         if (root) _dirStack.push_back(root);
         _finished = false;
