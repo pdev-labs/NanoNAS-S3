@@ -111,7 +111,18 @@ def main():
             print(f"[INFO] Staged {len(copied)} file(s) to: {sketch_dir}")
         
         # Compile using the folder (not the file)
-        compile_cmd = ["arduino-cli", "compile", "--fqbn", "esp32:esp32:esp32s3", sketch_dir]
+                psram_ans = input("\n[?] Enable PSRAM? (y/n) [default: y]: ").strip().lower()
+        if psram_ans == 'n':
+            fqbn = "esp32:esp32:esp32s3"
+        else:
+            psram_type = input("[?] PSRAM Type: 1) OPI (usually 8MB) or 2) QSPI (usually 2MB) [default: 1]: ").strip()
+            if psram_type == '2':
+                fqbn = "esp32:esp32:esp32s3:PSRAM=enabled"
+            else:
+                fqbn = "esp32:esp32:esp32s3:PSRAM=opi"
+                
+        print(f"[INFO] Using FQBN: {fqbn}\n")
+        compile_cmd = ["arduino-cli", "compile", "--fqbn", fqbn, sketch_dir]
         print(f"Running: {' '.join(compile_cmd)}")
         result = subprocess.run(compile_cmd)
         if result.returncode != 0:
@@ -121,7 +132,7 @@ def main():
             sys.exit(1)
             
         # Upload using the folder
-        upload_cmd = ["arduino-cli", "upload", "-p", port, "--fqbn", "esp32:esp32:esp32s3", sketch_dir]
+                upload_cmd = ["arduino-cli", "upload", "-p", port, "--fqbn", fqbn, sketch_dir]
         print(f"\nRunning: {' '.join(upload_cmd)}")
         result = subprocess.run(upload_cmd)
         
