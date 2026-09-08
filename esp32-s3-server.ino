@@ -330,7 +330,7 @@ void processCopyJob() {
     }
     
     // Copy a chunk
-    uint8_t buf[8192];
+    static uint8_t buf[4096];
     size_t len = currentJob.currentSrc.read(buf, sizeof(buf));
     if (len > 0) {
       currentJob.currentDest.write(buf, len);
