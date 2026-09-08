@@ -1,281 +1,55 @@
-# NanoNAS 🚀
+# NanoNAS-S3
 
-**NanoNAS** is an ultra-lightweight, premium, dual-mode Network Attached Storage (NAS) system designed exclusively for the **ESP32-S3** microcontroller.
+A lightweight, high-performance Network Attached Storage (NAS) solution designed specifically for the ESP32-S3 microcontroller. It transforms your ESP32-S3 into a fully functional local wireless file server with a beautiful, modern, material-design web interface.
 
-It provides a beautiful, modern, glassmorphism web dashboard for managing, streaming, and uploading files from external USB OTG mass storage devices (FAT16/FAT32).
+## Features
 
-![NanoNAS Dashboard Screenshot](screenshot.png) *(Add a screenshot here!)*
+- **Modern Web Interface**: Responsive, Material Design UI with Dark Mode support.
+- **Gallery & Grid View**: Beautiful image thumbnails and grid layout toggles.
+- **Folder Uploads**: Drag and drop or upload entire nested directory structures directly from the browser.
+- **Guest Access**: Role-based permission system restricts write actions for non-admin users.
+- **Storage Analytics**: Colorful breakdown of used storage by file type in the System Info modal.
+- **Multi-WiFi Support**: Configure multiple WiFi networks; the ESP32 will auto-connect to the strongest available network.
+- **Advanced Flasher**: Built-in Python script for automatic port detection, custom 16MB partition table generation, and PSRAM (OPI/QSPI) configuration on the fly.
+- **Over-The-Air (OTA) Updates**: Update the ESP32 firmware directly from the web interface.
+- **Robust File Management**: Create, rename, delete, copy, cut, and paste files and folders.
 
-## 🌟 Features
-- **USB OTG Mass Storage:** Plug in any FAT32 USB Pendrive to share Gigabytes of storage! (Requires an OTG Y-Cable or external 5V power to the USB device).
-- **Dual-Mode Networking:** Connects to your home WiFi. If the connection drops or is unavailable, it automatically broadcasts its own Hotspot (Access Point)!
-- **System Analytics Dashboard:** View live telemetry of your ESP32-S3's Heap, PSRAM usage, Uptime, and WiFi Signal Strength!
-- **Zero-Config mDNS:** No need to type IP addresses! Just go to `http://nanonas.local` in your browser.
-- **In-Browser Media & Markdown Streaming:** Instantly stream videos, audio, images, and beautifully rendered Markdown (`.md`) files directly in your browser without downloading!
-- **Intelligent Drag & Drop Uploads:** Effortlessly upload files by dragging them into the UI. Includes smart collision detection (Skip, Rename, Replace) for duplicate files.
-- **Wireless OTA Firmware Updates:** Seamlessly flash new firmware over the air directly from the web dashboard. No USB cables required!
-- **Premium UI & Multi-User Auth:** A stunning, mobile-responsive dark glassmorphism dashboard protected by role-based user authentication (Default Admin: `admin` / `admin123`).
-- **Dynamic RGB Indicators:** A dedicated FreeRTOS background task featuring an Apple-style exponential sine wave breathing effect. Colors intelligently shift based on system state:
-  - 🔵 **Breathing Blue:** Idle (Connected to WiFi)
-  - 💧 **Breathing Cyan:** Idle (Hosting AP Hotspot)
-  - 🟢 **Pulsing Green:** Reading / Streaming Files
-  - 🟠 **Pulsing Orange:** Writing / Uploading Files
-  - 🟣 **Strobing Purple:** Receiving OTA Update
-  - 🔴 **Blinking Red:** System Error
+## Hardware Requirements
 
-## ⚙️ Hardware Requirements
-- **ESP32-S3** (Tested on 8MB Flash variant).
-- A **USB OTG Y-Cable** to inject 5V power into the USB port.
-- A **FAT32** formatted USB Pendrive.
+- **ESP32-S3 Board**: Recommended 8MB PSRAM and 16MB Flash for maximum storage and performance.
+- Any standard ESP32-S3 dev board will work.
 
----
+## Installation & Setup
 
-## 🛠️ The Ultimate Beginner's Deployment Guide
-
-Don't know how to code? Never used a terminal before? **No problem!** 
-We have designed NanoNAS to be so incredibly easy to install that a 5-year-old could do it. Just follow these exact baby steps!
-
-### 🌟 Automated Setup (The "One-Click" Magic)
-Our smart robot script (`setup.py`) handles 99% of the hard work for you. It will download the tools, configure your WiFi, and get everything ready.
-
-#### Step 1: Open your Terminal (Command Prompt)
-- **Windows:** Click the Start menu, type `cmd`, and press Enter.
-- **Mac:** Press `Command + Space`, type `Terminal`, and press Enter.
-- **Linux:** Press `Ctrl + Alt + T`.
-- **Android:** Download the app `Termux` from F-Droid, open it, and type `pkg install git python` then press Enter.
-
-#### Step 2: Download (Clone) the Code
-In your terminal window, carefully type (or copy-paste) this exact command and press Enter:
-```bash
-git clone https://github.com/pdev-labs/NanoNAS-S3.git
-```
-*This downloads the NanoNAS code from the internet directly to your computer!*
-
-#### Step 3: Go inside the NanoNAS folder
-Now, tell your terminal to go inside the folder it just downloaded by typing this and pressing Enter:
-```bash
-cd NanoNAS-S3
-```
-
-#### Step 4: Run the Magic Setup Wizard!
-Now for the fun part! Type this command and press Enter:
-```bash
-python setup.py
-```
-The wizard will wake up and start talking to you! Just answer its questions:
-1. It will ask if you want to install `esptool` and `arduino-cli`. **Type `y` for yes!**
-2. It will ask for your **WiFi Name (SSID)** and **WiFi Password**. Type them carefully! This is how the NAS connects to your home router.
-3. It will ask you to create an **Admin Username and Password**. This is your secret login to access your files later.
-
-#### Step 5: Flash the board!
-Plug your ESP32-S3 into your computer with a USB cable.
-Type this final command and press Enter:
-```bash
-python flasher.py
-```
-*Boom!* You just built and installed an entire Network Attached Storage operating system!
-
----
-
-### 🔧 Manual Setup (For Advanced Hackers)
-If you want to install everything manually piece by piece, click on your Operating System below for the exact commands.
-
-<details>
-<summary><b>🐧 Linux (Ubuntu / Debian / Arch)</b></summary>
-
-1. **Install Python and Git:**
-   ```bash
-   # Ubuntu/Debian
-   sudo apt update && sudo apt install python3-pip python3-serial curl git
-   # Arch Linux
-   sudo pacman -S python-pip python-pyserial curl git
-   ```
-2. **Download the code:**
+1. **Clone the Repository:**
    ```bash
    git clone https://github.com/pdev-labs/NanoNAS-S3.git
    cd NanoNAS-S3
    ```
-3. **Install esptool (The flashing tool):**
+
+2. **Configure Credentials:**
+   Copy the example secrets file and add your WiFi credentials:
    ```bash
-   pip install esptool
+   cp secrets.h.example secrets.h
    ```
-4. **Install arduino-cli (The compiler):**
+   Edit `secrets.h` to define your WiFi networks (`SECRET_WIFI_SSID_1`, `SECRET_WIFI_PASSWORD_1`, etc.) and the admin login for the web interface.
+
+3. **Flash the Firmware:**
+   Run the included auto-flasher script:
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
-   sudo mv bin/arduino-cli /usr/local/bin/
+   python flasher.py
    ```
-</details>
+   *Follow the interactive prompts to enable PSRAM and select your Flash size (select 16MB to automatically generate the massive storage partition).*
 
-<details>
-<summary><b>🪟 Windows</b></summary>
+## Usage
 
-1. **Install Python & Git:**
-   - Download and install [Python](https://www.python.org/downloads/). *(CRITICAL: Check the box that says "Add Python to PATH" during install!)*
-   - Download and install [Git for Windows](https://git-scm.com/download/win).
-2. **Download the code:**
-   Open Command Prompt and type:
-   ```cmd
-   git clone https://github.com/pdev-labs/NanoNAS-S3.git
-   cd NanoNAS-S3
-   ```
-3. **Install esptool:**
-   ```cmd
-   pip install esptool
-   ```
-4. **Install arduino-cli:**
-   Download the latest Windows MSI installer from the [official Arduino CLI page](https://arduino.github.io/arduino-cli/latest/installation/). Run the installer and check the box to **Add to PATH**.
-</details>
+Once flashed, the ESP32-S3 will connect to your WiFi network and display its IP address in the Serial Monitor.
+Open a web browser on any device on the same network and navigate to that IP address (e.g., `http://192.168.1.100`).
 
-<details>
-<summary><b>🍏 macOS</b></summary>
+Log in using the admin credentials defined in your `secrets.h` file. 
 
-1. **Install Homebrew** (The Mac App Store for nerds):
-   ```bash
-   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-   ```
-2. **Install everything else:**
-   ```bash
-   brew install python arduino-cli git
-   pip3 install esptool
-   ```
-3. **Download the code:**
-   ```bash
-   git clone https://github.com/pdev-labs/NanoNAS-S3.git
-   cd NanoNAS-S3
-   ```
-</details>
+To give access to friends or family without giving them delete/modify privileges, you can create a "guest" user from the Settings menu.
 
-<details>
-<summary><b>📱 Android (Non-Rooted)</b></summary>
+## License
 
-Standard Android blocks USB access for terminals, but you have three clever options:
-
-1. **Option A: The Wireless OTA Method (Recommended / No USB Needed)**
-   - Download the app `Termux` from F-Droid, open it, and install the tools:
-     ```bash
-     pkg update && pkg upgrade
-     pkg install python clang make git
-     ```
-   - Download the code and run the setup wizard to configure your passwords:
-     ```bash
-     git clone https://github.com/pdev-labs/NanoNAS-S3.git
-     cd NanoNAS-S3
-     python setup.py
-     ```
-   - Run `python build_bin.py` to magically compile your firmware into a `.bin` file inside Termux.
-   - Open Chrome on your phone, log in to your NanoNAS dashboard, and upload the `.bin` file using the **Firmware Update (OTA)** button!
-
-2. **Option B: Web Tools (Easiest for pre-compiled bins)**
-   If you just want to flash a pre-compiled `.bin`, bypass Termux completely:
-   - Connect your ESP chip via USB OTG.
-   - Open Chrome on Android and navigate to [ESP Web Tools](https://espressif.github.io/esptool-js/).
-   - Tap **Connect**, grant Chrome USB permissions, and flash your firmware directly using WebUSB!
-   - *(Use [Adafruit Web Serial ESPTool](https://adafruit.github.io/Adafruit_WebSerial_ESPTool/) if your phone manufacturer blocks raw serial drivers).*
-
-3. **Option C: The TCP Bridge Method (Advanced USB Flashing)**
-   - Download a "TCP-to-UART bridge" app from the Play Store (e.g., "TCPUART").
-   - Plug in your ESP32 via USB OTG and grant the app USB permissions.
-   - Start the TCP server in the app (e.g., on port 8080).
-   - In Termux, flash the board through the bridge using RFC2217:
-     ```bash
-     esptool.py -p socket://127.0.0.1:8080 write_flash 0x0 build/your_sketch.bin
-     ```
-</details>
-
-<details>
-<summary><b>📱 Android (Rooted)</b></summary>
-
-If your phone is rooted, you can grant Termux direct access to the USB port!
-
-1. **Download Termux:** (Get it from F-Droid, NOT the Google Play Store).
-2. **Install tools and root utilities:**
-   ```bash
-   pkg update && pkg upgrade
-   pkg install python clang make git tsu
-   pip install esptool pyserial
-   ```
-3. **Download the code:**
-   ```bash
-   git clone https://github.com/pdev-labs/NanoNAS-S3.git
-   cd NanoNAS-S3
-   ```
-4. **Flashing the board:**
-   - Run `tsu` to become the root user.
-   - Run `python flasher.py` to compile and flash the board directly over USB!
-</details>
-
-#### Advanced Step: Install C++ Libraries Manually
-If you didn't use `setup.py`, you must install these libraries yourself:
-```bash
-arduino-cli core update-index
-arduino-cli core install esp32:esp32
-arduino-cli lib install "ArduinoJson" "Adafruit NeoPixel" "EspUsbHost"
-```
-
-#### Advanced Step: Configure Passwords Manually
-1. Rename the `secrets.h.example` file to `secrets.h`.
-2. Open `secrets.h` in Notepad/TextEdit and type your WiFi Name and Password:
-   ```c
-   #define SECRET_WIFI_SSID "MyHomeWiFi"
-   #define SECRET_WIFI_PASSWORD "MySecretPassword123"
-   ```
-*(Git will automatically ignore `secrets.h` so your real password will NEVER be uploaded to GitHub!)*
-
----
-
-## 🚀 The Python Utilities (Cross-Platform)
-
-We have engineered five incredibly powerful, fully **cross-platform** utility scripts. They auto-detect your OS and magically run flawlessly on all platforms!
-
-### 1. The Interactive Setup Wizard (`setup.py`)
-Automatically downloads toolchains, configures your WiFi, and sets up your environment in 60 seconds.
-```bash
-python setup.py
-```
-
-### 2. The Universal Builder (`build_bin.py`)
-A smart compiler that auto-detects your attached Arduino board via `arduino-cli`, extracts its FQBN, and generates a `.bin` file perfectly formatted for OTA updates!
-```bash
-python build_bin.py
-```
-
-### 3. The Auto-Flasher (`flasher.py`)
-A blazing-fast deployment script that automatically stages your files, utilizes the `arduino-cli` build cache, and auto-detects your COM/TTY ports.
-```bash
-python flasher.py
-```
-After successfully flashing, it will automatically launch a high-speed Serial Monitor so you can instantly view your boot logs and IP addresses.
-
-### 4. The OTA Updater (`ota_update.py`)
-Wirelessly compile and push firmware updates to your NanoNAS over the network!
-```bash
-python ota_update.py
-```
-This script will automatically trigger `build_bin.py`, locate the compiled binary, and push it directly to the NAS via HTTP POST using basic authentication.
-
-### 5. The Diagnostics Tool (`info.py`)
-The ultimate hardware and software deep-dive interrogator!
-```bash
-python info.py
-```
-Extracts and renders beautiful ASCII tables containing Hardware Specs, Security Posture, and dynamically unpacked Firmware Intel.
-
-### 5. The Nuclear Reset (`erase.py`)
-If your ESP32-S3 gets stuck in a boot loop or the partition table gets corrupted, this script rescues it by erasing the flash or pushing a dummy bootloader.
-```bash
-python erase.py
-```
-
----
-
-## 📦 Latest Release
-
-**v1.2.0 - The Pro Update**
-This release brings **Wireless OTA Firmware Updates**, an **In-Browser Markdown Viewer**, **Intelligent Drag & Drop Uploads** with collision detection, and a stunning **Apple-style RGB breathing effect**. We also introduced powerful cross-platform Python scripts (`setup.py`, `build_bin.py`) for fully automated deployments!
-
-👉 *For a complete list of changes and past versions, please check the [Releases tab](https://github.com/pdev-labs/NanoNAS-S3/releases) on GitHub.*
-
----
-
-## 📜 License
-This project is licensed under the **GNU General Public License v3.0 (GPLv3)**. See the `LICENSE` file for details.
+This project is open-source and available under the standard MIT License.
