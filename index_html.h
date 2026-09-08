@@ -680,7 +680,13 @@ const char index_html[] PROGMEM = R"rawliteral(
             <span class="material-symbols-outlined" id="fabIcon">add</span>
         </button>
         <div class="fab-menu" id="fabMenu">
+            
+            <div class="mini-fab" onclick="document.getElementById('folderInput').click(); toggleFabMenu();">
+                <div class="mini-fab-label">Upload Folder</div>
+                <button class="mini-fab-btn"><span class="material-symbols-outlined">drive_folder_upload</span></button>
+            </div>
             <div class="mini-fab" onclick="document.getElementById('fileInput').click(); toggleFabMenu();">
+
                 <div class="mini-fab-label">Upload File</div>
                 <button class="mini-fab-btn"><span class="material-symbols-outlined">upload_file</span></button>
             </div>
@@ -1433,23 +1439,37 @@ let currentDir = "/";
             for (let idx = 0; idx < files.length; idx++) {
                 const file = files[idx];
                 let finalName = file.name;
-
-                if (existingNames.includes(finalName)) {
-                    let choice = await promptCollision(finalName);
-                    if (choice === 'skip') {
-                        continue;
-                    } else if (choice !== 'replace') {
-                        finalName = choice;
+                
+                let isFolderUpload = !!file.webkitRelativePath;
+                let relativePath = file.webkitRelativePath || finalName;
+                
+                if (isFolderUpload) {
+                    let parts = file.webkitRelativePath.split('/');
+                    parts.pop();
+                    let dirToCreate = currentDir === "/" ? "" : currentDir;
+                    for (let p of parts) {
+                        dirToCreate += "/" + p;
+                        await fetch(`/mkdir?dir=${encodeURIComponent(dirToCreate)}`, {method: 'POST'});
+                    }
+                } else {
+                    if (existingNames.includes(finalName)) {
+                        let choice = await promptCollision(finalName);
+                        if (choice === 'skip') {
+                            continue;
+                        } else if (choice !== 'replace') {
+                            finalName = choice;
+                            relativePath = finalName;
+                        }
                     }
                 }
 
                 pBar.style.width = '0%';
-                pText.innerText = `[${idx+1}/${files.length}] Uploading ${finalName} (0%)`;
+                pText.innerText = `[${idx+1}/${files.length}] Uploading ${relativePath} (0%)`;
 
                 const chunkSize = 1024 * 256; 
                 const totalChunks = Math.ceil(file.size / chunkSize) || 1;
                 let uploadedBytes = 0;
-                let fullPath = (currentDir === "/" ? "" : currentDir) + "/" + finalName;
+                let fullPath = (currentDir === "/" ? "" : currentDir) + "/" + relativePath;
 
                 let tempPath = fullPath + ".tmp";
                 let allSuccess = true;
